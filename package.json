@@ -1,0 +1,25 @@
+{
+  "name": "ai-commerce-hub",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "turbo run dev --parallel",
+    "build": "turbo run build",
+    "test": "vitest",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "format": "prettier --write \"**/*.{ts,tsx,md}\""
+  },
+  "devDependencies": {
+    "@playwright/test": "1.44.1",
+    "@types/node": "^20.12.7",
+    "eslint": "8.57.0",
+    "prettier": "3.2.5",
+    "turbo": "1.13.3",
+    "typescript": "5.4.5",
+    "vitest": "1.6.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

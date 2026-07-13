@@ -1,0 +1,14 @@
+﻿{
+  "recommendations": [
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+    "bradlc.vscode-tailwindcss",
+    "drizzle-team.drizzle-vscode",
+    "ms-playwright.playwright",
+    "usernamehw.errorlens",
+    "vitest.explorer",
+    "aaron-bond.better-comments",
+    "christian-kohler.path-intellisense",
+    "mikestead.dotenv"
+  ]
+}

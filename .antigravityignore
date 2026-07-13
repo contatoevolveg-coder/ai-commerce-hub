@@ -1,0 +1,15 @@
+﻿.env
+.env.local
+.env.production
+.env.staging
+secrets/
+*.pem
+*.key
+*.p12
+node_modules/
+dist/
+build/
+.next/
+*.log
+.turbo/
+coverage/

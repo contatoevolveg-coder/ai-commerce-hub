@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+
+# Env
+.env
+.env.local
+.env.*.local
+.env.production
+.env.staging
+secrets/
+*.pem
+*.key
+*.p12
+
+# Build output
+dist/
+build/
+.next/
+out/
+storybook-static/
+
+# Turbo
+.turbo/
+
+# Testing
+coverage/
+playwright-report/
+test-results/
+
+# Logs
+*.log
+pnpm-debug.log*
+npm-debug.log*
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.claude/settings.local.json
+
+# TypeScript
+*.tsbuildinfo
