@@ -1,3 +1,5 @@
+"use client"
+
 import { DataTable, Column, Badge } from "@ai-commerce/ui"
 import { Order, recentOrders } from "@/lib/mock-data"
 

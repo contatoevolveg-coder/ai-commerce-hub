@@ -18,6 +18,7 @@ build/
 .next/
 out/
 storybook-static/
+next-env.d.ts
 
 # Turbo
 .turbo/

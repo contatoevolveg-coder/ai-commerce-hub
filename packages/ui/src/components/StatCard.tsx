@@ -1,5 +1,5 @@
 import * as React from "react"
-import { cn } from "@/lib/utils"
+import { cn } from "../lib/utils"
 import { ArrowDownIcon, ArrowUpIcon } from "lucide-react"
 
 export interface StatCardProps extends React.HTMLAttributes<HTMLDivElement> {
