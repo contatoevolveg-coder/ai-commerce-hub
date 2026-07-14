@@ -1,22 +1,23 @@
 "use client"
 
-import { DataTable, Column, Badge } from "@ai-commerce/ui"
-import { Order, recentOrders } from "@/lib/mock-data"
+import { DataTable, Column, Badge, EmptyState } from "@ai-commerce/ui"
+import type { Order } from "@/lib/types"
+import { ShoppingCart } from "lucide-react"
 
-export function RecentOrders() {
+export function RecentOrders({ orders }: { orders: Order[] }) {
   const columns: Column<Order>[] = [
     { key: "id", label: "Pedido", align: "left" },
     { key: "customer", label: "Cliente", align: "left" },
     { key: "date", label: "Data", align: "left" },
-    { 
-      key: "amount", 
-      label: "Valor", 
+    {
+      key: "amount",
+      label: "Valor",
       align: "right",
       render: (row) => <span className="font-mono text-primary-text">{row.amount}</span>
     },
-    { 
-      key: "status", 
-      label: "Status", 
+    {
+      key: "status",
+      label: "Status",
       align: "right",
       render: (row) => {
         const variants: Record<string, "success" | "warning" | "danger" | "default"> = {
@@ -25,7 +26,7 @@ export function RecentOrders() {
           shipped: "default",
           cancelled: "danger"
         }
-        
+
         const labels: Record<string, string> = {
           delivered: "Entregue",
           processing: "Processando",
@@ -43,7 +44,14 @@ export function RecentOrders() {
       <div className="flex items-center justify-between border-b border-border-subtle p-6">
         <h3 className="text-sm font-medium uppercase tracking-wider text-muted">Pedidos Recentes</h3>
       </div>
-      <DataTable columns={columns} rows={recentOrders} className="pb-2" />
+      {orders.length === 0 ? (
+        <EmptyState
+          icon={<ShoppingCart className="h-6 w-6" />}
+          title="Nenhum pedido ainda"
+        />
+      ) : (
+        <DataTable columns={columns} rows={orders} className="pb-2" />
+      )}
     </div>
   )
 }
