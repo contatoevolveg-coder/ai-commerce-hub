@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1784058352680,
+      "tag": "0000_sparkling_katie_power",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1784058372216,
+      "tag": "0001_force_rls_and_audit_append_only",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1784058536793,
+      "tag": "0002_app_role_bootstrap",
+      "breakpoints": true
+    }
+  ]
+}

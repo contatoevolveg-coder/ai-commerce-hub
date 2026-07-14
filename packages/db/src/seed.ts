@@ -1,5 +1,3 @@
-import { db } from './index';
-
 async function main() {
   console.log('Seed: Start');
   // Seed initial logic here
