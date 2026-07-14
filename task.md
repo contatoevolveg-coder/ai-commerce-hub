@@ -63,16 +63,29 @@ Quem busca no banco (`packages/db` ou uma camada de repositório) fica fora do p
 17. [x] Testes `tenant-isolation` (5 casos, incluindo INSERT com WITH CHECK) e
     `audit-append-only` (2 casos) — escritos, tipados, lintados. Pulam com aviso claro quando
     `APP_DATABASE_URL` não está configurada (não derrubam a suíte).
-18. [ ] **NÃO VERIFICADO AO VIVO**: não há Docker nem Postgres nativo disponível neste ambiente
-    de execução. O SQL foi revisado manualmente linha a linha (policies, FORCE RLS, trigger,
-    grants) e a lógica está correta pelo meu conhecimento de semântica do Postgres, mas isso
-    não substitui rodar de verdade. **Ação necessária do usuário**: `docker compose up -d`,
-    depois `cd packages/db && pnpm db:push`, configurar `APP_DATABASE_URL` no `.env` real
-    (valor sugerido em `.env.example`), depois `pnpm test` — os 7 testes devem passar de verde.
+18. [x] **VERIFICADO AO VIVO contra o Supabase real** (sem Docker disponível no ambiente de
+    execução, usado o Postgres cloud do `.env` com autorização explícita do usuário). Apliquei
+    as 4 migrations diretamente via `postgres` driver (schema public estava vazio, sem
+    colisão). Resultado da checagem pós-apply: 21 tabelas, RLS+FORCE em todas as 20 de negócio,
+    20 policies, trigger `audit_log_append_only` existe, `app_role` criada com
+    `rolsuper=false rolbypassrls=false` (84 grants).
+    **Achado real durante a validação**: a role `postgres` do Supabase não é superusuário puro,
+    mas tem `rolbypassrls=true` — confirma que a decisão de criar `app_role` (item 14) era
+    necessária de verdade, não só teórica.
+    **Bug real encontrado e corrigido**: `current_setting(x, true)` só retorna `NULL` da
+    *primeira* vez que uma GUC customizada nunca foi setada numa conexão. Numa conexão com
+    pool (o caso real da app), depois que qualquer transação seta a variável via
+    `set_config(..., true)` e comita, ela reverte para **string vazia**, não NULL — confirmado
+    empiricamente com um script isolado. Isso fazia o `::uuid` direto lançar erro de sintaxe
+    em vez de falhar fechado. Corrigido com `nullif(current_setting(...), '')::uuid` em
+    `schema/rls.ts` (migration `0003_lucky_raider.sql`, `ALTER POLICY` nas 20 tabelas,
+    já aplicada no Supabase). Resultado final: **6/6 testes passando, 3 execuções seguidas sem
+    flakiness**, 1 todo (rota HTTP, ver item 19). `pnpm db:generate` confirmado idempotente
+    depois da correção. Dados de teste limpos ao final (0 linhas órfãs confirmado).
 19. [ ] Teste `tenant-isolation` **via rota HTTP** — marcado `test.todo()`. Não existe nenhuma
     Route Handler ainda (isso é F4). Sinalizado explicitamente, não omitido silenciosamente.
-20. [x] `pnpm typecheck && pnpm lint && pnpm test && pnpm build` — todos verdes (saída no
-    resumo da conversa). `pnpm test` = 30 passed, 6 skipped (RLS, sem DB), 1 todo (rota HTTP).
+20. [x] `pnpm typecheck && pnpm lint && pnpm test && pnpm build` — todos verdes, incluindo os
+    testes de RLS/append-only rodando de verdade contra Postgres real.
 
 ## Nota sobre dados de tarifa reais
 
