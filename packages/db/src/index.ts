@@ -24,3 +24,11 @@ const resolvedConnectionString =
 
 const client = postgres(resolvedConnectionString);
 export const db = drizzle(client, { schema });
+
+// Reexports para consumidores (packages/core/services, apps/web). Aditivo — não
+// remove nada. `db` é definido ACIMA de propósito: tenant-context reimporta `db`
+// daqui, e o import circular só é seguro porque `db` já existe quando é usado
+// (em runtime, dentro de withTenant), não no topo do módulo.
+export * from './schema';
+export * from './tenant-context';
+export { DEV_CLIENTE_ID } from './dev-tenant';

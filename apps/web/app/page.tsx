@@ -8,6 +8,8 @@ import { getDashboardKpis, getSalesData } from "@/lib/data/dashboard"
 import { getOrders } from "@/lib/data/orders"
 import { getAgents } from "@/lib/data/agents"
 
+export const dynamic = "force-dynamic"
+
 export default async function DashboardHome() {
   const [kpis, sales, orders, agents] = await Promise.all([
     getDashboardKpis(),
