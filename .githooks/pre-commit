@@ -1,0 +1,30 @@
+#!/usr/bin/env sh
+# Pre-commit: typecheck + lint antes de todo commit (rapido, com cache do turbo).
+# Instalado automaticamente por `pnpm install` (script "prepare" na raiz), que roda
+# `git config core.hooksPath .githooks`. Ver ANTIGRAVITY_RULES.md / GUARDRAILS.md
+# para o incidente que motivou isto: uma sobrescrita parcial de arquivos quebrou o
+# typecheck e ninguem percebeu antes do commit.
+#
+# pnpm test / pnpm build ficam de fora daqui de proposito (lentos demais para rodar
+# a cada commit) — eles rodam no CI (.github/workflows/ci.yml) em todo push/PR.
+
+echo "[pre-commit] pnpm typecheck && pnpm lint..."
+
+pnpm typecheck
+if [ $? -ne 0 ]; then
+  echo ""
+  echo "[pre-commit] BLOQUEADO: pnpm typecheck falhou. Corrija os erros acima antes de commitar."
+  echo "[pre-commit] Para pular esta checagem (nao recomendado): git commit --no-verify"
+  exit 1
+fi
+
+pnpm lint
+if [ $? -ne 0 ]; then
+  echo ""
+  echo "[pre-commit] BLOQUEADO: pnpm lint falhou. Corrija os erros acima antes de commitar."
+  echo "[pre-commit] Para pular esta checagem (nao recomendado): git commit --no-verify"
+  exit 1
+fi
+
+echo "[pre-commit] typecheck e lint OK."
+exit 0

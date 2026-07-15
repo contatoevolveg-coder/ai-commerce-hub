@@ -73,7 +73,7 @@ export function DataTable<T extends { id?: string | number }>({
                   >
                     {col.render
                       ? col.render(row)
-                      : (row as any)[col.key as string]}
+                      : (row as Record<string, React.ReactNode>)[col.key as string]}
                   </td>
                 ))}
               </tr>

@@ -1,4 +1,15 @@
 {
   "root": true,
-  "extends": "next/core-web-vitals"
+  "extends": "next/core-web-vitals",
+  "plugins": ["@typescript-eslint"],
+  "rules": {
+    "@typescript-eslint/no-explicit-any": "error",
+    "no-restricted-syntax": [
+      "error",
+      {
+        "selector": "CallExpression[callee.property.name='toFixed']",
+        "message": "toFixed() e proibido (AGENTS.md regra 8: dinheiro e bigint em centavos, nunca float). Formate com matematica inteira."
+      }
+    ]
+  }
 }

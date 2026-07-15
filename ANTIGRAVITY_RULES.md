@@ -83,3 +83,22 @@ O Antigravity não lê automaticamente arquivos de regra deste repositório (ver
 colado manualmente no início de cada sessão** até/a menos que o Antigravity passe a suportar
 um arquivo de regras nativo — se isso mudar, mover o conteúdo do bloco acima para o formato
 nativo correspondente.
+
+## O que também virou verificação automática (não depende mais de colar o prompt)
+
+As regras 3, 4 e 6 acima agora são checadas **por máquina**, não só por instrução em texto:
+
+- **Regra 4** (alias `@/lib/utils` em `packages/ui`): ESLint (`no-restricted-imports` em
+  `packages/ui/.eslintrc.js`) falha o build se esse padrão aparecer. Testado empiricamente —
+  pega o erro exato do incidente.
+- **Regra 6** (rodar typecheck/lint sempre): `packages/ui` e `packages/integrations` ganharam
+  script `lint` (antes não tinham nenhum — era por isso que o bug do alias passou despercebido
+  da primeira vez). `apps/web/.eslintrc.json` ganhou as regras de dinheiro/`any` que antes só
+  existiam na raiz e nunca rodavam nele.
+- **Git hook** (`.githooks/pre-commit`, instalado automaticamente por `pnpm install` via script
+  `prepare`): roda `pnpm typecheck && pnpm lint` antes de todo commit e **bloqueia** se algo
+  falhar. `pnpm test`/`pnpm build` ficam fora do hook (lentos demais por commit) — continuam
+  rodando no CI a cada push.
+
+Isso significa: mesmo que alguém esqueça de colar este prompt no Antigravity, o padrão exato
+do incidente anterior não consegue mais ser commitado silenciosamente.

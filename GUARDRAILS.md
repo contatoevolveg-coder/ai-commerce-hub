@@ -40,3 +40,8 @@ O agente lÃª este arquivo antes de qualquer tarefa.
   apps/web quebra o build sem aparecer no tsc do proprio pacote UI (so aparece no do web).
 - Nunca use `any` como solucao para "nao sei o tipo ainda" (regra 1 do AGENTS.md). Se o tipo real
   ainda nao existe, defina-o em apps/web/lib/types.ts - nao deixe `Promise<any>` como atalho.
+
+- Boa parte destas regras agora tambem e checada automaticamente: ESLint bloqueia o alias
+  @/lib/utils dentro de packages/ui (packages/ui/.eslintrc.js), e um git hook local roda
+  pnpm typecheck + pnpm lint antes de todo commit (.githooks/pre-commit, instalado sozinho
+  por pnpm install). Ver ANTIGRAVITY_RULES.md para detalhes.
