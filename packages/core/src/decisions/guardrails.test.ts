@@ -90,10 +90,18 @@ describe('construirContextoGuardrails (proposta -> contexto, puro)', () => {
     expect(ctx?.precoAtualCentavos).toBe(18990n)
   })
 
-  it('retorna null quando a proposta não é uma decisão de preço válida', () => {
+  it('retorna null quando a proposta não é uma decisão de preço', () => {
     expect(construirContextoGuardrails({ tipo: 'diagnostico_cadastro' })).toBeNull()
     expect(construirContextoGuardrails(null)).toBeNull()
-    expect(construirContextoGuardrails({ tipo: 'ajuste_preco', sku: 'X' })).toBeNull()
+  })
+
+  it('lança erro (fail-closed) quando é uma decisão de preço com campos inválidos', () => {
+    // Fail-closed intencional: uma proposta de ajuste_preco malformada NUNCA deve pular
+    // os guardrails silenciosamente (essa era a reintrodução do bug original). Ver
+    // ANTIGRAVITY_RULES.md / HISTORICO_PROJETO.md — auditoria pós-F5.3.
+    expect(() => construirContextoGuardrails({ tipo: 'ajuste_preco', sku: 'X' })).toThrow(
+      'Proposta de ajuste de preço com campos inválidos',
+    )
   })
 })
 

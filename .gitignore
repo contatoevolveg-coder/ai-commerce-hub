@@ -12,6 +12,9 @@ secrets/
 *.key
 *.p12
 
+# Scripts ad-hoc com connection string hardcoded (nunca commitar credencial em texto plano)
+packages/db/apply_migration.js
+
 # Build output
 dist/
 build/

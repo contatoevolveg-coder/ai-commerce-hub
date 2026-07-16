@@ -1,0 +1,26 @@
+{
+  "name": "@ai-commerce/worker",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "lint": "eslint src/",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ai-commerce/core": "workspace:*",
+    "@ai-commerce/db": "workspace:*",
+    "@ai-commerce/integrations": "workspace:*",
+    "bullmq": "^5.0.0",
+    "drizzle-orm": "0.45.2",
+    "ioredis": "^5.0.0",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.0.0"
+  }
+}
