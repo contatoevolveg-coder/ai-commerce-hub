@@ -4,6 +4,8 @@ import { ChartCard } from "@/components/analytics/ChartCard"
 import { PeriodSelector } from "@/components/analytics/PeriodSelector"
 import { getAnalytics } from "@/lib/data/analytics"
 
+export const dynamic = "force-dynamic"
+
 export default async function AnalyticsPage() {
   const analytics = await getAnalytics("30d")
 

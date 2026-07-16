@@ -4,6 +4,8 @@ import { Shell } from "@/components/Shell"
 import { CustomersView } from "@/components/clientes/CustomersView"
 import { getCustomers, getCustomersSummary } from "@/lib/data/customers"
 
+export const dynamic = "force-dynamic"
+
 export default async function ClientesPage() {
   const [customers, summary] = await Promise.all([
     getCustomers(),

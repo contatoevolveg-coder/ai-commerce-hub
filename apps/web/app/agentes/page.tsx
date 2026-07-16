@@ -5,6 +5,8 @@ import { AgentCard } from "@/components/agentes/AgentCard"
 import { ActivityLog } from "@/components/agentes/ActivityLog"
 import { getAgents, getAgentActivity } from "@/lib/data/agents"
 
+export const dynamic = "force-dynamic"
+
 export default async function AgentesPage() {
   const [agents, activity] = await Promise.all([
     getAgents(),

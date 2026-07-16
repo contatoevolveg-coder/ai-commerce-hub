@@ -3,6 +3,8 @@ import { Shell } from "@/components/Shell"
 import { ProductsView } from "@/components/produtos/ProductsView"
 import { getProducts } from "@/lib/data/products"
 
+export const dynamic = "force-dynamic"
+
 export default async function ProdutosPage() {
   const products = await getProducts()
 

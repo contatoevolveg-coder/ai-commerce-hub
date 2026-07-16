@@ -14,8 +14,10 @@
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "lucide-react": "0.379.0",
+    "zod": "3.23.8",
     "@ai-commerce/ui": "workspace:*",
-    "@ai-commerce/core": "workspace:*"
+    "@ai-commerce/core": "workspace:*",
+    "@ai-commerce/db": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^20",
