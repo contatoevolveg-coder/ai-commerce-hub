@@ -3,9 +3,10 @@
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import { AIDecisionCard } from '@ai-commerce/ui/src/components/AIDecisionCard'
+import type { TarefaResumo } from '@ai-commerce/core/src/services/governanca.service'
 // sem sonner, usando alert nativo para manter simplicidade
 
-export function AIDecisionCardClient({ tarefa }: { tarefa: Record<string, unknown> }) {
+export function AIDecisionCardClient({ tarefa }: { tarefa: TarefaResumo }) {
   const router = useRouter()
   const [isAprovando, setIsAprovando] = React.useState(false)
   const [isRejeitando, setIsRejeitando] = React.useState(false)
@@ -62,7 +63,7 @@ export function AIDecisionCardClient({ tarefa }: { tarefa: Record<string, unknow
         valorAntigoCentavos={proposta.precoAtualCentavos ? BigInt(proposta.precoAtualCentavos as string) : undefined}
         valorNovoCentavos={proposta.precoPropostoCentavos ? BigInt(proposta.precoPropostoCentavos as string) : undefined}
         raciocinio={String(tarefa.decisaoRaciocinio || tarefa.descricao || '')}
-        impactoReaisCentavos={tarefa.decisaoImpacto ? BigInt(tarefa.decisaoImpacto as number) : 0n}
+        impactoReaisCentavos={tarefa.decisaoImpacto || 0n}
         impactoMargemBps={0} // Mock temporário, margem real precisaria do custo
         confianca={Number(tarefa.decisaoConfianca || 0)}
         onAprovar={handleAprovar}

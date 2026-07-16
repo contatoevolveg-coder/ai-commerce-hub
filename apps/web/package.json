@@ -10,16 +10,20 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@ai-commerce/core": "workspace:*",
+    "@ai-commerce/db": "workspace:*",
+    "@ai-commerce/ui": "workspace:*",
+    "bcrypt": "^6.0.0",
+    "drizzle-orm": "0.45.2",
+    "lucide-react": "0.379.0",
     "next": "14.2.35",
+    "next-auth": "5.0.0-beta.31",
     "react": "18.3.1",
     "react-dom": "18.3.1",
-    "lucide-react": "0.379.0",
-    "zod": "3.23.8",
-    "@ai-commerce/ui": "workspace:*",
-    "@ai-commerce/core": "workspace:*",
-    "@ai-commerce/db": "workspace:*"
+    "zod": "3.23.8"
   },
   "devDependencies": {
+    "@types/bcrypt": "^6.0.0",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",

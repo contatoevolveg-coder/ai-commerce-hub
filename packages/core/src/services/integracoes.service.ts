@@ -1,5 +1,5 @@
 import { and, eq } from 'drizzle-orm'
-import { withTenant, conexaoErp } from '@ai-commerce/db'
+import { withTenant, conexaoErp, auditLog } from '@ai-commerce/db'
 import { cifrar, decifrar } from '../crypto/credencial'
 import { getErpCatalogo, type ErpTipo } from '../integracoes/catalogo-erp'
 
@@ -94,6 +94,7 @@ export function listarConexoesErp(clienteId: string): Promise<ConexaoErpResumo[]
 export function salvarCredencialErp(
   clienteId: string,
   entrada: { erp: ErpTipo; rotulo: string; credenciais: Record<string, string> },
+  atorId: string = 'sistema',
 ): Promise<ConexaoErpResumo> {
   const chave = obterChave()
   const { payloadCifrado, iv, authTag } = cifrarCredenciais(entrada.erp, entrada.credenciais, chave)
@@ -121,6 +122,17 @@ export function salvarCredencialErp(
         status: conexaoErp.status,
         atualizadoEm: conexaoErp.atualizadoEm,
       })
+
+    await tx.insert(auditLog).values({
+      clienteId,
+      ator: atorId,
+      acao: 'salvar_conexao_erp',
+      entidade: 'conexao_erp',
+      entidadeId: row.id,
+      valorNovo: { erp: row.erp, rotulo: row.rotulo },
+      motivo: 'Credencial ERP configurada/atualizada',
+    })
+
     return row
   })
 }
@@ -146,10 +158,27 @@ export function obterCredencialErp(
 }
 
 /** Remove (desconecta) uma conexão de ERP do tenant. */
-export function removerConexaoErp(clienteId: string, conexaoId: string): Promise<void> {
+export function removerConexaoErp(clienteId: string, conexaoId: string, atorId: string = 'sistema'): Promise<void> {
   return withTenant(clienteId, async (tx) => {
-    await tx
-      .delete(conexaoErp)
+    const [row] = await tx
+      .select({ erp: conexaoErp.erp })
+      .from(conexaoErp)
       .where(and(eq(conexaoErp.id, conexaoId), eq(conexaoErp.clienteId, clienteId)))
+
+    if (row) {
+      await tx
+        .delete(conexaoErp)
+        .where(and(eq(conexaoErp.id, conexaoId), eq(conexaoErp.clienteId, clienteId)))
+
+      await tx.insert(auditLog).values({
+        clienteId,
+        ator: atorId,
+        acao: 'remover_conexao_erp',
+        entidade: 'conexao_erp',
+        entidadeId: conexaoId,
+        valorAnterior: { erp: row.erp },
+        motivo: 'Conexão ERP removida manualmente',
+      })
+    }
   })
 }

@@ -1,8 +1,18 @@
 import { desc, eq } from 'drizzle-orm'
 import { withTenant, pedido, comprador, canal } from '@ai-commerce/db'
 
+export interface PedidoResumo {
+  id: string
+  numero: string
+  cliente: string | null
+  canal: string | null
+  totalCentavos: bigint
+  status: string
+  criadoEm: Date
+}
+
 /** Lista pedidos do tenant, do mais recente para o mais antigo, com comprador e canal. */
-export function listarPedidos(clienteId: string) {
+export function listarPedidos(clienteId: string, limit: number = 50, offset: number = 0): Promise<PedidoResumo[]> {
   return withTenant(clienteId, async (tx) => {
     return await tx
       .select({
@@ -19,10 +29,10 @@ export function listarPedidos(clienteId: string) {
       .leftJoin(canal, eq(canal.id, pedido.canalId))
       .where(eq(pedido.clienteId, clienteId))
       .orderBy(desc(pedido.criadoEm))
+      .limit(limit)
+      .offset(offset)
   })
 }
-
-export type PedidoRow = Awaited<ReturnType<typeof listarPedidos>>[number]
 
 /** Contagens por situação para os cards de resumo da tela de Pedidos. */
 export function resumoPedidos(clienteId: string) {

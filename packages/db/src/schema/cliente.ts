@@ -41,6 +41,7 @@ export const usuario = pgTable(
       .references(() => papel.id),
     nome: text('nome').notNull(),
     email: text('email').notNull(),
+    senhaHash: text('senha_hash').notNull(),
     ativo: boolean('ativo').notNull().default(true),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },

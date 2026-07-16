@@ -1,7 +1,6 @@
 import { getClienteIdAtual } from '../../lib/tenant'
-import { listarTarefas } from '@ai-commerce/core/src/services/governanca.service'
-import { PageHeader } from '@ai-commerce/ui'
-import { DataTable } from '@ai-commerce/ui'
+import { listarTarefas, type TarefaResumo } from '@ai-commerce/core/src/services/governanca.service'
+import { type Column, PageHeader, DataTable } from '@ai-commerce/ui'
 import { formatData } from '../../lib/format'
 import { AIDecisionCardClient } from './AIDecisionCardClient'
 
@@ -19,13 +18,13 @@ export default async function GovernancaPage() {
   const tarefasDecisao = tarefas.filter(t => t.tipo === 'aprovacao_decisao' && t.decisaoId)
   const outrasTarefas = tarefas.filter(t => t.tipo !== 'aprovacao_decisao' || !t.decisaoId)
 
-  const columns = [
+  const columns: Column<TarefaResumo>[] = [
     { key: 'titulo', label: 'TÍTULO' },
     { key: 'tipo', label: 'TIPO' },
     { 
       key: 'criadoEm', 
       label: 'CRIADO EM',
-      render: (t: Record<string, unknown>) => formatData(new Date(t.criadoEm as string | number | Date))
+      render: (t) => formatData(t.criadoEm)
     },
     { key: 'status', label: 'STATUS' },
   ]

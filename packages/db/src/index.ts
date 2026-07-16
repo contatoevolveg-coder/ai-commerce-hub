@@ -8,13 +8,20 @@ import * as schema from './schema';
 // Ver drizzle/0002_app_role_bootstrap.sql e .env.example.
 const connectionString = process.env.APP_DATABASE_URL;
 
-if (!connectionString && process.env.NODE_ENV !== 'test') {
-  // eslint-disable-next-line no-console
-  console.warn(
-    '[db] APP_DATABASE_URL não definida — caindo para DATABASE_URL. ' +
-      'Isto conecta como role privilegiada e IGNORA o RLS de multi-tenancy. ' +
-      'Configure APP_DATABASE_URL no .env (ver .env.example) antes de produção.',
-  );
+if (!connectionString) {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(
+      '[CRITICAL] APP_DATABASE_URL não configurada no ambiente de produção. ' +
+      'Abortando conexão por segurança (Fail-Closed) para evitar bypass de RLS via superusuário.'
+    )
+  } else if (process.env.NODE_ENV !== 'test') {
+    // eslint-disable-next-line no-console
+    console.warn(
+      '[db] APP_DATABASE_URL não definida — caindo para DATABASE_URL. ' +
+        'Isto conecta como role privilegiada e IGNORA o RLS de multi-tenancy. ' +
+        'Configure APP_DATABASE_URL no .env (ver .env.example) antes de ir para produção.',
+    );
+  }
 }
 
 const resolvedConnectionString =
@@ -32,6 +39,16 @@ const resolvedConnectionString =
 // Inofensivo em conexão direta (dev local) — só desativa uma otimização.
 const client = postgres(resolvedConnectionString, { prepare: false });
 export const db = drizzle(client, { schema });
+
+// Cliente ADMINISTRATIVO — usa a MESMA conexão privilegiada do seed.ts (DATABASE_URL,
+// bypassa RLS). Uso EXCLUSIVO para fluxos de bootstrap sem tenant ainda resolvido:
+// login (busca usuário por email, antes de saber o clienteId) e criação de conta
+// (criar cliente + primeiro usuário na mesma transação). NUNCA use isto para queries
+// de negócio — isso ignora o isolamento de tenant inteiro. Ver ANTIGRAVITY_RULES.md
+// Regra 17 (incidente 3).
+const adminConnectionString = process.env.DATABASE_URL || resolvedConnectionString;
+const adminClient = postgres(adminConnectionString, { prepare: false });
+export const dbAuthBootstrap = drizzle(adminClient, { schema });
 
 // Reexports para consumidores (packages/core/services, apps/web). Aditivo — não
 // remove nada. `db` é definido ACIMA de propósito: tenant-context reimporta `db`

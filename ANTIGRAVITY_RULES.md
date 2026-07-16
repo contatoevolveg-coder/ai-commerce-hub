@@ -2,14 +2,21 @@
 
 > Cole este bloco no **início de toda sessão** do Antigravity neste projeto (antes do prompt
 > da fase, junto do BLOCO 0). Ele não redefine a constituição do projeto — reforça como o
-> Antigravity deve *operar* sobre arquivos existentes, porque já tivemos DOIS incidentes reais:
+> Antigravity deve *operar* sobre arquivos existentes, porque já tivemos TRÊS incidentes reais:
 > (1) uma sessão sobrescreveu parcialmente ~11 arquivos com versões mais antigas/pobres enquanto
 > o resto do código já esperava a versão nova, quebrando o typecheck (30+ erros) e reintroduzindo
 > o bug do alias `@/lib/utils`; (2) uma sessão reimplementou a F4.2 inteira em cima de um branch
 > que ela mesma tinha deixado desatualizado, sem sincronizar com a `main`, reintroduzindo um bug
 > de produção já corrigido (pooler do Supabase) e adicionando um `throw` que derrubaria o site
-> inteiro se fosse deployado. Documentado em `GUARDRAILS.md`. Este arquivo existe para que isso
-> não se repita.
+> inteiro se fosse deployado; (3) uma sessão implementou Auth.js (login + cadastro de loja) sem
+> perceber que as tabelas `usuario`/`cliente` têm RLS forçado — o `authorize()` e o
+> `registerTenant()` liam/escreviam via `db` direto (fora de `withTenant`), o que faz login e
+> cadastro falharem 100% das vezes em produção assim que a role `app_role` (não-superusuário)
+> está configurada; a mesma sessão também trocou validações Zod por `as any` em 3 lugares para
+> silenciar erro de tipo, o que quebrou o `next build` (ESLint `no-explicit-any` já era regra
+> existente, mas a sessão não rodou `pnpm build`/`pnpm lint` antes de declarar pronto — violação
+> da Regra 6 abaixo, não falta de regra). Documentado em `GUARDRAILS.md`. Este arquivo existe
+> para que isso não se repita.
 
 ---
 
@@ -92,6 +99,24 @@ REGRA DE SINCRONIZAÇÃO (causa do incidente 2 — ver regra 0 no topo deste blo
     variável de ambiente é proibido, a menos que combinado explicitamente. Isso executa no
     import do módulo, não quando alguém de fato usa o valor errado — derruba a aplicação
     inteira em produção mesmo que o valor nunca seja mal utilizado.
+
+REGRA DE RLS E TENANT (causa do incidente 3):
+17. TODA tabela que tem `FORCE ROW LEVEL SECURITY` (grep `FORCE ROW LEVEL SECURITY` nas
+    migrations pra ver quais são — hoje inclui `cliente`, `usuario`, `decisao`, `tarefa`,
+    `conexao_erp`, entre outras) só pode ser lida/escrita através de `withTenant(clienteId, ...)`
+    (que seta `app.current_cliente_id` na sessão) OU do cliente administrativo dedicado descrito
+    abaixo. NUNCA importe `db` de `@ai-commerce/db` e rode `db.select/insert/update` direto numa
+    dessas tabelas em código de aplicação (rotas, services, actions) — isso compila e passa no
+    `tsc`, mas em produção (onde `APP_DATABASE_URL` aponta pra uma role sem `BYPASSRLS`) a query
+    retorna 0 linhas ou viola o `WITH CHECK` da policy, silenciosamente.
+    Exceção conhecida e documentada: fluxos de bootstrap SEM tenant ainda resolvido (login,
+    criação de conta/onboarding) legitimamente precisam de acesso administrativo — para esses,
+    use o cliente admin dedicado (ver prompt de correção do incidente 3), nunca `db` genérico.
+18. Antes de declarar qualquer tarefa "pronta", rode os 4 comandos da Regra 6
+    (`pnpm typecheck && pnpm lint && pnpm test && pnpm build`) e cole a saída real de TODOS,
+    não só do `tsc`. `tsc --noEmit` NÃO pega erro de ESLint (ex. `no-explicit-any`) nem erro que
+    só aparece no build do Next.js — só `pnpm build` roda o lint-no-build do Next e pega isso.
+    "Typecheck passou" não é sinônimo de "pronto".
 ```
 
 ---
@@ -107,6 +132,8 @@ REGRA DE SINCRONIZAÇÃO (causa do incidente 2 — ver regra 0 no topo deste blo
 | 6–7 (verificar sempre, revisar diff) | O problema só foi descoberto porque o usuário rodou `pnpm typecheck` manualmente depois — se não tivesse rodado, o próximo push quebraria o deploy de novo. |
 | 0, 15 (sincronizar git, preservar regra de negócio) | Uma sessão reimplementou a F4.2 em cima de branch desatualizado, sem saber que aquele trabalho já tinha sido revisado e corrigido. Reintroduziu a ausência de `prepare: false` (bug do pooler já corrigido) e removeu a regra "receita exclui cancelados" em 3 funções ao trocar filtro JS por SQL. |
 | 16 (nunca `throw` no nível de módulo por env) | `dev-tenant.ts` ganhou `if (NODE_ENV === 'production') throw` fora de função — derrubaria a aplicação inteira (500 em toda rota) no primeiro deploy, porque o módulo é importado por toda página, não só onde o valor seria mal utilizado. |
+| 17 (RLS só via `withTenant` ou cliente admin dedicado) | `auth.ts` (`authorize()`) e `actions.ts` (`registerTenant()`) usaram `db` direto em tabelas com `FORCE ROW LEVEL SECURITY`. Login sempre retornava "credenciais inválidas" (a busca por email via RLS sem `app.current_cliente_id` setado retorna 0 linhas) e o cadastro de loja sempre falhava no insert (viola `WITH CHECK`). Passou no `tsc` porque é um erro de dado em runtime, não de tipo — só apareceu ao ler a policy de RLS e confirmar que `app_role` não tem `BYPASSRLS`. |
+| 18 (rodar os 4 comandos, não só `tsc`) | A mesma sessão trocou 3 validações Zod por `as any` pra silenciar erro de tipo. `tsc --noEmit` passou limpo (a regra de `any` é do ESLint, não do compilador). `pnpm build` — que já era exigido pela Regra 6 — falhava direto com `Unexpected any. Specify a different type.` Só foi descoberto porque alguém rodou `pnpm build` manualmente depois. |
 
 ---
 

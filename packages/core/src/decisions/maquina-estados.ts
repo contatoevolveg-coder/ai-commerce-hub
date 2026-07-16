@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm'
+import { eq, and } from 'drizzle-orm'
 import { decisao, auditLog, cliente, agente, type TenantTx } from '@ai-commerce/db'
 import { aplicarGuardrails, type ContextoGuardrails } from './guardrails'
 import { construirContextoGuardrails } from './proposta'
@@ -38,6 +38,78 @@ export function validarTransicaoEstado(estadoAtual: EstadoDecisao, estadoAlvo: E
  * nunca recalculado aqui com valores fabricados. Kill switch e nível de autonomia são lookups
  * simples de coluna única no banco. Um `contexto` explícito (usado em testes) tem precedência.
  */
+async function comporContexto(
+  tx: TenantTx,
+  decisaoAtual: typeof decisao.$inferSelect,
+  contexto?: ContextoGuardrails
+): Promise<ContextoGuardrails> {
+  const contextoPreco = construirContextoGuardrails(decisaoAtual.proposta)
+  const contextoResolvido: ContextoGuardrails = { ...contextoPreco, ...contexto }
+
+  if (contextoResolvido.cliente === undefined) {
+    const [c] = await tx
+      .select({ aiExecutionEnabled: cliente.aiExecutionEnabled })
+      .from(cliente)
+      .where(eq(cliente.id, decisaoAtual.clienteId))
+    if (c) contextoResolvido.cliente = c
+  }
+  if (contextoResolvido.agente === undefined) {
+    const [a] = await tx
+      .select({ nivelAutonomia: agente.nivelAutonomia })
+      .from(agente)
+      .where(eq(agente.id, decisaoAtual.agenteId))
+    if (a) contextoResolvido.agente = a
+  }
+  return contextoResolvido
+}
+
+async function gerarRollback(
+  tx: TenantTx,
+  decisaoAtual: typeof decisao.$inferSelect,
+  ator: string,
+  motivo?: string
+) {
+  if (decisaoAtual.estado !== 'executed') {
+    throw new Error('Apenas decisões executadas podem sofrer rollback.')
+  }
+
+  const [novaDecisao] = await tx
+    .insert(decisao)
+    .values({
+      clienteId: decisaoAtual.clienteId,
+      agenteId: decisaoAtual.agenteId,
+      versaoPrompt: decisaoAtual.versaoPrompt,
+      modelo: decisaoAtual.modelo,
+      inputHash: decisaoAtual.inputHash,
+      proposta: decisaoAtual.estadoAnteriorJson ?? {}, // rollback usa o estado anterior
+      raciocinio: `Rollback da decisão ${decisaoAtual.id}${motivo ? `: ${motivo}` : ''}`,
+      impactoEstimadoCentavos: -decisaoAtual.impactoEstimadoCentavos,
+      confianca: 100,
+      estado: 'proposed',
+      estadoAnteriorJson: decisaoAtual.proposta,
+    })
+    .returning()
+
+  const [decisaoAtualizada] = await tx
+    .update(decisao)
+    .set({ estado: 'rollback', atualizadoEm: new Date() })
+    .where(and(eq(decisao.id, decisaoAtual.id), eq(decisao.clienteId, decisaoAtual.clienteId)))
+    .returning()
+
+  await tx.insert(auditLog).values({
+    clienteId: decisaoAtual.clienteId,
+    ator,
+    acao: 'transicao_estado_decisao',
+    entidade: 'decisao',
+    entidadeId: decisaoAtual.id,
+    valorAnterior: { estado: decisaoAtual.estado },
+    valorNovo: { estado: 'rollback', rollbackDecisaoId: novaDecisao.id },
+    motivo: motivo ?? 'Rollback',
+  })
+
+  return decisaoAtualizada
+}
+
 export async function transitarDecisao(
   tx: TenantTx,
   decisaoAtual: typeof decisao.$inferSelect,
@@ -49,79 +121,18 @@ export async function transitarDecisao(
   // 1. Valida o grafo da máquina de estados
   validarTransicaoEstado(decisaoAtual.estado, estadoAlvo)
 
-  // 2. Resolve o contexto dos guardrails (só quando a transição é uma aprovação)
-  let contextoResolvido: ContextoGuardrails = { ...contexto }
-
+  // 2. Resolve o contexto e aplica guardrails
   if (estadoAlvo === 'auto_approved' || estadoAlvo === 'approved') {
-    // Contexto de preço vem SÓ da proposta da decisão (o proponente já calculou o piso com
-    // dados reais). O contexto explícito, se passado, vence.
-    const contextoPreco = construirContextoGuardrails(decisaoAtual.proposta)
-    contextoResolvido = { ...contextoPreco, ...contextoResolvido }
-
-    // Kill switch (cliente) e nível de autonomia (agente): lookups de coluna única.
-    if (contextoResolvido.cliente === undefined) {
-      const [c] = await tx
-        .select({ aiExecutionEnabled: cliente.aiExecutionEnabled })
-        .from(cliente)
-        .where(eq(cliente.id, decisaoAtual.clienteId))
-      if (c) contextoResolvido.cliente = c
-    }
-    if (contextoResolvido.agente === undefined) {
-      const [a] = await tx
-        .select({ nivelAutonomia: agente.nivelAutonomia })
-        .from(agente)
-        .where(eq(agente.id, decisaoAtual.agenteId))
-      if (a) contextoResolvido.agente = a
-    }
+    const contextoResolvido = await comporContexto(tx, decisaoAtual, contexto)
+    aplicarGuardrails(estadoAlvo, decisaoAtual.impactoEstimadoCentavos, contextoResolvido)
   }
 
-  // 3. Aplica guardrails (lança HardStopError / PendingReviewRequiredError e aborta a transação)
-  aplicarGuardrails(estadoAlvo, decisaoAtual.impactoEstimadoCentavos, contextoResolvido)
-
-  // 4. Rollback: cria uma NOVA decisão de rollback referenciando a original (nunca UPDATE destrutivo)
+  // 3. Rollback
   if (estadoAlvo === 'rollback') {
-    if (decisaoAtual.estado !== 'executed') {
-      throw new Error('Apenas decisões executadas podem sofrer rollback.')
-    }
-
-    const [novaDecisao] = await tx
-      .insert(decisao)
-      .values({
-        clienteId: decisaoAtual.clienteId,
-        agenteId: decisaoAtual.agenteId,
-        versaoPrompt: decisaoAtual.versaoPrompt,
-        modelo: decisaoAtual.modelo,
-        inputHash: decisaoAtual.inputHash,
-        proposta: decisaoAtual.estadoAnteriorJson ?? {}, // rollback usa o estado anterior como nova proposta
-        raciocinio: `Rollback da decisão ${decisaoAtual.id}${motivo ? `: ${motivo}` : ''}`,
-        impactoEstimadoCentavos: -decisaoAtual.impactoEstimadoCentavos,
-        confianca: 100,
-        estado: 'proposed',
-        estadoAnteriorJson: decisaoAtual.proposta,
-      })
-      .returning()
-
-    const [decisaoAtualizada] = await tx
-      .update(decisao)
-      .set({ estado: estadoAlvo, atualizadoEm: new Date() })
-      .where(eq(decisao.id, decisaoAtual.id))
-      .returning()
-
-    await tx.insert(auditLog).values({
-      clienteId: decisaoAtual.clienteId,
-      ator,
-      acao: 'transicao_estado_decisao',
-      entidade: 'decisao',
-      entidadeId: decisaoAtual.id,
-      valorAnterior: { estado: decisaoAtual.estado },
-      valorNovo: { estado: estadoAlvo, rollbackDecisaoId: novaDecisao.id },
-      motivo: motivo ?? 'Rollback',
-    })
-
-    return decisaoAtualizada
+    return gerarRollback(tx, decisaoAtual, ator, motivo)
   }
 
-  // 5. Fluxo normal: atualiza o estado
+  // 4. Fluxo normal: atualiza o estado
   const registrarAtor = ator !== 'sistema' && (estadoAlvo === 'approved' || estadoAlvo === 'rejected')
   const [decisaoAtualizada] = await tx
     .update(decisao)
@@ -130,10 +141,10 @@ export async function transitarDecisao(
         ? { estado: estadoAlvo, atualizadoEm: new Date(), atorAprovador: ator }
         : { estado: estadoAlvo, atualizadoEm: new Date() },
     )
-    .where(eq(decisao.id, decisaoAtual.id))
+    .where(and(eq(decisao.id, decisaoAtual.id), eq(decisao.clienteId, decisaoAtual.clienteId)))
     .returning()
 
-  // 6. Trilha de auditoria (append-only)
+  // 5. Trilha de auditoria
   await tx.insert(auditLog).values({
     clienteId: decisaoAtual.clienteId,
     ator,

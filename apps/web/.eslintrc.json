@@ -10,6 +10,26 @@
         "selector": "CallExpression[callee.property.name='toFixed']",
         "message": "toFixed() e proibido (AGENTS.md regra 8: dinheiro e bigint em centavos, nunca float). Formate com matematica inteira."
       }
+    ],
+    "no-restricted-imports": [
+      "error",
+      {
+        "paths": [
+          {
+            "name": "@ai-commerce/db",
+            "importNames": ["dbAuthBootstrap"],
+            "message": "O uso de dbAuthBootstrap ignora o RLS. Permitido apenas em auth.ts e actions.ts de (auth)."
+          }
+        ]
+      }
     ]
-  }
+  },
+  "overrides": [
+    {
+      "files": ["auth.ts", "app/(auth)/actions.ts"],
+      "rules": {
+        "no-restricted-imports": "off"
+      }
+    }
+  ]
 }

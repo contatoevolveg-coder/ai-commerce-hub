@@ -242,7 +242,8 @@ async function main() {
       clienteId: DEV_CLIENTE_ID,
       papelId: papelRow.id,
       nome: 'Admin',
-      email: 'admin@demo.com'
+      email: 'admin@demo.com',
+      senhaHash: '$2b$10$Xm1T5bI5X3Q1/aA6N6.8u.O2l2v8oH8eL0a3b2o0T2O/4h2V.0RzK' // admin123
     })
 
   console.log('[seed] Decisões e Tarefas de Governança…')
