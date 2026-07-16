@@ -26,10 +26,16 @@ ANTES DE LER QUALQUER ARQUIVO .md, SINCRONIZE O GIT (causa do incidente 2):
    vê localmente é o estado atual do projeto.
 
 Depois disso, leia nesta ordem:
-- ./AGENTS.md          (constituição: stack, regras invioláveis, fluxo obrigatório)
-- ./GUARDRAILS.md       (padrões de falha já observados — inclui os 2 incidentes de sobrescrita)
-- ./ROADMAP.md          (onde estamos, o que falta, prioridade)
+- ./AGENTS.md            (constituição: stack, regras invioláveis, fluxo obrigatório)
+- ./HISTORICO_PROJETO.md (o que já foi feito, fase a fase, com detalhe de arquivo e regra de
+                          negócio — leia ANTES de reescrever qualquer service/query existente)
+- ./GUARDRAILS.md        (padrões de falha já observados — inclui os 2 incidentes de sobrescrita)
+- ./ROADMAP.md           (onde estamos, o que falta, prioridade)
 - ./implementation_plan.md e ./task.md (se existirem, são o plano em andamento)
+
+Se o que você lê em ./HISTORICO_PROJETO.md não bater com o que existe de fato no repositório
+(arquivo citado não existe, ou existe diferente do descrito), PARE e avise — o histórico está
+desatualizado, não confie nele cegamente, mas também não ignore: avise para ser corrigido.
 
 Se qualquer instrução minha contradisser esses arquivos, ESSES arquivos vencem. Pare e me avise.
 
