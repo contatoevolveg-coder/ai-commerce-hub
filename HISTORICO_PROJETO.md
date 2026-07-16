@@ -108,6 +108,20 @@ resolvido — não precisa re-investigar, só não repetir.**
 
 ---
 
+## Bug pós-merge encontrado e corrigido — Incidente 3 (Auth.js sem AUTH_SECRET em produção)
+
+O middleware (`apps/web/middleware.ts`) roda `auth()` do NextAuth em TODA rota (matcher exclui só
+`/api/auth`, `_next/static`, `_next/image`, `favicon.ico`). Isso significa que, a partir do commit
+que introduziu Auth.js, a variável `AUTH_SECRET` deixou de ser opcional — sem ela configurada no
+ambiente do deployment, TODA página quebra com "server-side exception" (não só as de login).
+`AUTH_SECRET` foi adicionada ao `.env.example` e gerada, mas o deployment em produção que rodou
+antes de a variável ser configurada no painel da Vercel ficou no ar sem ela — site inteiro fora
+do ar até o próximo build pegar a variável. Env var nova no painel da Vercel NUNCA se aplica a um
+deployment já existente — precisa de um build novo (redeploy manual ou push com diff real; commit
+vazio é ignorado pelo "ignored build step" da Vercel, que detecta "not affected" e pula o build).
+Ver também `packages/db/apply_migration.js` no `.gitignore` — tinha connection string de produção
+em texto plano, nunca chegou a ser commitado, mas quase foi.
+
 ## Como manter este arquivo
 
 Toda vez que uma fase for concluída e mergeada na `main`, adicione uma seção nova aqui (mesmo
