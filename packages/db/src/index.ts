@@ -22,7 +22,15 @@ const resolvedConnectionString =
   process.env.DATABASE_URL ||
   'postgres://postgres:postgres@localhost:5432/ai_commerce';
 
-const client = postgres(resolvedConnectionString);
+// prepare:false é obrigatório quando a conexão passa pelo Supavisor em modo
+// transaction (porta 6543) — esse modo não suporta prepared statements no nível
+// de protocolo, porque cada query pode ser roteada para uma conexão de backend
+// diferente do pool. Serverless (Vercel) só alcança o Supabase por essa rota:
+// o Postgres do Supabase é IPv6 na conexão direta e a Vercel não tem saída IPv6
+// (documentado pela própria Supabase). Sem prepare:false, queries falham de
+// forma intermitente com "prepared statement already exists"/"does not exist".
+// Inofensivo em conexão direta (dev local) — só desativa uma otimização.
+const client = postgres(resolvedConnectionString, { prepare: false });
 export const db = drizzle(client, { schema });
 
 // Reexports para consumidores (packages/core/services, apps/web). Aditivo — não
