@@ -6,6 +6,7 @@ import {
   ValidationError,
   NotFoundError,
 } from '@ai-commerce/core/src/errors'
+import { ChaveCriptografiaAusenteError } from '@ai-commerce/core/src/services/integracoes.service'
 import { getClienteIdAtual, getAtorIdAtual, getAtorPapelAtual } from './tenant'
 
 type HandlerFunction = (req: NextRequest, ctx: { params: Record<string, string> }) => Promise<NextResponse>
@@ -26,6 +27,10 @@ export function withApiHandler(handler: HandlerFunction) {
           { erro: 'Dados inválidos', detalhes: error.errors },
           { status: 400 }
         )
+      }
+
+      if (error instanceof ChaveCriptografiaAusenteError) {
+        return NextResponse.json({ erro: error.message }, { status: 503 })
       }
 
       if (error instanceof AuthorizationError) {
