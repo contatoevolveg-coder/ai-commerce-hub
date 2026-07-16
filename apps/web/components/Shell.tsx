@@ -13,13 +13,15 @@ import {
   BarChart3, 
   Settings,
   Bell,
-  UserCircle
+  UserCircle,
+  ShieldCheck
 } from 'lucide-react'
 
 const navItems = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
   { name: "Pedidos", href: "/pedidos", icon: ShoppingCart },
   { name: "Produtos", href: "/produtos", icon: Package },
+  { name: "Governança", href: "/governanca", icon: ShieldCheck },
   { name: "Agentes IA", href: "/agentes", icon: Bot },
   { name: "Clientes", href: "/clientes", icon: Users },
   { name: "Analytics", href: "/analytics", icon: BarChart3 },
