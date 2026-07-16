@@ -2,20 +2,32 @@
 
 > Cole este bloco no **início de toda sessão** do Antigravity neste projeto (antes do prompt
 > da fase, junto do BLOCO 0). Ele não redefine a constituição do projeto — reforça como o
-> Antigravity deve *operar* sobre arquivos existentes, porque já tivemos um incidente real:
-> uma sessão anterior sobrescreveu parcialmente ~11 arquivos com versões mais antigas/pobres
-> enquanto o resto do código já esperava a versão nova, quebrando o typecheck (30+ erros) e
-> reintroduzindo o bug do alias `@/lib/utils` que já havia sido corrigido. Documentado em
-> `GUARDRAILS.md`. Este arquivo existe para que isso não se repita.
+> Antigravity deve *operar* sobre arquivos existentes, porque já tivemos DOIS incidentes reais:
+> (1) uma sessão sobrescreveu parcialmente ~11 arquivos com versões mais antigas/pobres enquanto
+> o resto do código já esperava a versão nova, quebrando o typecheck (30+ erros) e reintroduzindo
+> o bug do alias `@/lib/utils`; (2) uma sessão reimplementou a F4.2 inteira em cima de um branch
+> que ela mesma tinha deixado desatualizado, sem sincronizar com a `main`, reintroduzindo um bug
+> de produção já corrigido (pooler do Supabase) e adicionando um `throw` que derrubaria o site
+> inteiro se fosse deployado. Documentado em `GUARDRAILS.md`. Este arquivo existe para que isso
+> não se repita.
 
 ---
 
 ## Bloco para colar no Antigravity (início de toda sessão)
 
 ```
-Antes de qualquer edição, leia nesta ordem:
+ANTES DE LER QUALQUER ARQUIVO .md, SINCRONIZE O GIT (causa do incidente 2):
+0. Rode `git fetch origin main` e `git log origin/main --oneline -10`. Compare com o branch em
+   que você está. Se `origin/main` tem commits que seu branch local não tem, PARE — não comece
+   a trabalhar em cima de estado desatualizado. Diga ao usuário/ao Claude Code em qual commit
+   você está baseando o trabalho e peça confirmação de que é o estado atual antes de prosseguir.
+   Se você não tem acesso a `git fetch` no seu ambiente, PERGUNTE explicitamente "qual é o commit
+   mais recente da main agora?" antes de tocar em qualquer arquivo — não assuma que o que você
+   vê localmente é o estado atual do projeto.
+
+Depois disso, leia nesta ordem:
 - ./AGENTS.md          (constituição: stack, regras invioláveis, fluxo obrigatório)
-- ./GUARDRAILS.md       (padrões de falha já observados — inclui o incidente de sobrescrita)
+- ./GUARDRAILS.md       (padrões de falha já observados — inclui os 2 incidentes de sobrescrita)
 - ./ROADMAP.md          (onde estamos, o que falta, prioridade)
 - ./implementation_plan.md e ./task.md (se existirem, são o plano em andamento)
 
@@ -60,6 +72,20 @@ FLUXO OBRIGATÓRIO (já é regra do AGENTS.md, reforçando):
 13. Um branch por fase. Conventional Commits, corpo em português.
 14. Se encontrar ambiguidade de regra de negócio (taxa, comissão, fórmula), PARE e pergunte.
     Não invente valor.
+
+REGRA DE SINCRONIZAÇÃO (causa do incidente 2 — ver regra 0 no topo deste bloco):
+15. Nunca reescreva uma query/service já existente "do zero" achando que está melhorando —
+    se o arquivo já compila e já foi validado (typecheck/lint/test/build verdes, ou pior, já
+    testado ao vivo em produção), qualquer reescrita precisa preservar TODO comportamento
+    observável documentado em comentários/docstrings do arquivo original — especialmente
+    regras de negócio como "exclui cancelados", "filtra por status X". Se o comentário some
+    na sua reescrita, a regra provavelmente some com ele. Não troque filtro em JS por
+    agregação SQL (ou vice-versa) sem primeiro listar, em texto, quais regras de negócio o
+    código atual aplica — e confirmar que a nova versão aplica as mesmas.
+16. `throw`/lançar erro no nível de módulo (fora de função) baseado em `NODE_ENV` ou qualquer
+    variável de ambiente é proibido, a menos que combinado explicitamente. Isso executa no
+    import do módulo, não quando alguém de fato usa o valor errado — derruba a aplicação
+    inteira em produção mesmo que o valor nunca seja mal utilizado.
 ```
 
 ---
@@ -73,6 +99,30 @@ FLUXO OBRIGATÓRIO (já é regra do AGENTS.md, reforçando):
 | 4 (alias relativo em `packages/ui`) | `Card`, `EmptyState`, `PageHeader`, `Skeleton` voltaram a importar `@/lib/utils` — o mesmo bug que já tinha derrubado o build da Vercel antes, reintroduzido. |
 | 5 (types.ts aditivo) | `Kpi.label`, `Order.channel`, `AiAgent.id/description` foram removidos do tipo enquanto os componentes que os liam continuavam iguais. |
 | 6–7 (verificar sempre, revisar diff) | O problema só foi descoberto porque o usuário rodou `pnpm typecheck` manualmente depois — se não tivesse rodado, o próximo push quebraria o deploy de novo. |
+| 0, 15 (sincronizar git, preservar regra de negócio) | Uma sessão reimplementou a F4.2 em cima de branch desatualizado, sem saber que aquele trabalho já tinha sido revisado e corrigido. Reintroduziu a ausência de `prepare: false` (bug do pooler já corrigido) e removeu a regra "receita exclui cancelados" em 3 funções ao trocar filtro JS por SQL. |
+| 16 (nunca `throw` no nível de módulo por env) | `dev-tenant.ts` ganhou `if (NODE_ENV === 'production') throw` fora de função — derrubaria a aplicação inteira (500 em toda rota) no primeiro deploy, porque o módulo é importado por toda página, não só onde o valor seria mal utilizado. |
+
+---
+
+## Modelo de colaboração (Antigravity executa, Claude Code revisa/aprova/desbloqueia)
+
+A partir de agora, o fluxo do projeto é este — não é ambos os agentes codando em paralelo:
+
+1. **Claude Code (esta sessão/arquivo) escreve o prompt de execução da fase** (ex.
+   `PROMPT_F5_1.md`), já ancorado no estado real do repositório (schema, arquivos existentes,
+   convenções) — não um prompt genérico.
+2. **Antigravity executa** o prompt: plano → aprovação → código → DoD.
+3. **Antes de qualquer commit/PR, Claude Code audita o diff completo** (não só o resumo que o
+   Antigravity reporta) contra o estado real da `main` — exatamente como a auditoria que gerou
+   este bloco. Só aprova pra commit/merge o que sobrevive a essa auditoria.
+4. **Quando o Antigravity travar** — sem terminal para rodar `pnpm`, sem token, sem acesso a
+   git/Supabase/Vercel, ou qualquer bloqueio de ambiente — **Claude Code assume a execução
+   direta** daquele passo específico (não a fase inteira, só o que travou) e devolve o controle
+   pro Antigravity quando destravar, ou finaliza a fase se fizer mais sentido.
+5. **Antigravity nunca decide sozinho tocar em `AGENTS.md`, `ANTIGRAVITY_RULES.md`,
+   `GUARDRAILS.md` ou `ROADMAP.md`** — esses arquivos são a constituição/processo do projeto.
+   Mudança neles é proposta ao usuário (via Claude Code ou diretamente), nunca commitada como
+   parte de uma tarefa de feature.
 
 ---
 

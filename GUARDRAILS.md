@@ -45,3 +45,25 @@ O agente lÃª este arquivo antes de qualquer tarefa.
   @/lib/utils dentro de packages/ui (packages/ui/.eslintrc.js), e um git hook local roda
   pnpm typecheck + pnpm lint antes de todo commit (.githooks/pre-commit, instalado sozinho
   por pnpm install). Ver ANTIGRAVITY_RULES.md para detalhes.
+
+## Incidente 2 — trabalhar em branch desatualizado sem sincronizar com main
+Uma sessao do Antigravity reimplementou a F4.2 inteira do zero, partindo do branch
+`feat/f4-2-servicos-bff` no estado em que ELE MESMO tinha deixado antes — sem rodar
+`git fetch`/`git pull` para descobrir que aquele trabalho ja tinha sido revisado, corrigido,
+mergeado na main E CORRIGIDO DE NOVO (um bug de conexao com o pooler do Supabase, achado e
+resolvido depois do merge). Resultado, tudo sem perceber que estava sobrescrevendo trabalho ja
+validado:
+- Reintroduziu a ausencia de `prepare: false` na conexao Postgres — o bug exato do pooler que
+  ja tinha sido corrigido, e que quebraria a producao de novo se fosse mergeado.
+- Reverteu silenciosamente a regra "receita/gasto exclui pedidos cancelados" em 3 funcoes
+  (trocou filtro em JS por agregacao SQL sem `WHERE status != cancelado`).
+- Adicionou `throw new Error(...)` no nivel de modulo em `dev-tenant.ts` quando
+  `NODE_ENV === 'production'` — como esse modulo e importado por toda pagina, isso derrubaria
+  o site inteiro (500 em tudo) se fosse deployado.
+- Editou `AGENTS.md` (a constituicao) por conta propria, adicionando uma regra nova sem pedir.
+
+**Regra nova: antes de comecar QUALQUER fase, rode `git fetch origin main` e
+`git log origin/main --oneline -10`. Se o branch em que voce esta prestes a trabalhar nao
+contém o commit mais recente de origin/main, PARE — voce esta prestes a trabalhar em cima de
+codigo desatualizado. Pergunte antes de prosseguir.** Ver ANTIGRAVITY_RULES.md secao "Modelo de
+colaboracao" para o fluxo completo (Antigravity executa, Claude Code revisa/aprova/desbloqueia).
