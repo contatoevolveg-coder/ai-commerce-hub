@@ -53,6 +53,8 @@ export async function aprovarTarefa(clienteId: string, tarefaId: string, atorPap
         // A máquina de estados vai rodar os guardrails de Hard Stop (preço-piso, atacado, kill switch)
         // Se algum violar, ela lançará um HardStopError e abortará a transação
         await transitarDecisao(tx, d, 'approved', atorId, 'Aprovado via Governance Center')
+      } else {
+        throw new Error('Decisão referenciada pela tarefa não encontrada ou sem acesso')
       }
     }
 
@@ -74,6 +76,8 @@ export async function rejeitarTarefa(clienteId: string, tarefaId: string, motivo
       const [d] = await tx.select().from(decisao).where(eq(decisao.id, t.decisaoId))
       if (d) {
         await transitarDecisao(tx, d, 'rejected', atorId, motivo)
+      } else {
+        throw new Error('Decisão referenciada pela tarefa não encontrada ou sem acesso')
       }
     }
 

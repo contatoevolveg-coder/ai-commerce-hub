@@ -59,7 +59,8 @@ export function AIDecisionCardClient({ tarefa }: { tarefa: Record<string, unknow
     <div className="flex flex-col gap-2">
       <h3 className="font-semibold text-body">{String(tarefa.titulo)}</h3>
       <AIDecisionCard
-        valorNovoCentavos={proposta.preco_novo ? BigInt(proposta.preco_novo as number) : undefined}
+        valorAntigoCentavos={proposta.precoAtualCentavos ? BigInt(proposta.precoAtualCentavos as string) : undefined}
+        valorNovoCentavos={proposta.precoPropostoCentavos ? BigInt(proposta.precoPropostoCentavos as string) : undefined}
         raciocinio={String(tarefa.decisaoRaciocinio || tarefa.descricao || '')}
         impactoReaisCentavos={tarefa.decisaoImpacto ? BigInt(tarefa.decisaoImpacto as number) : 0n}
         impactoMargemBps={0} // Mock temporário, margem real precisaria do custo

@@ -32,7 +32,12 @@ export type PropostaAjustePreco = z.infer<typeof propostaAjustePrecoSchema>
  */
 export function construirContextoGuardrails(proposta: unknown): ContextoGuardrails | null {
   const parsed = propostaAjustePrecoSchema.safeParse(proposta)
-  if (!parsed.success) return null
+  if (!parsed.success) {
+    if (typeof proposta === 'object' && proposta !== null && 'tipo' in proposta && proposta.tipo === 'ajuste_preco') {
+      throw new Error('Proposta de ajuste de preço com campos inválidos — guardrails não podem ser avaliados')
+    }
+    return null
+  }
 
   const p = parsed.data
   const contexto: ContextoGuardrails = {

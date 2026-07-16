@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { aprovarTarefa, rejeitarTarefa } from '@ai-commerce/core/src/services/governanca.service'
 import { getClienteIdAtual, getAtorPapelAtual, getAtorIdAtual } from '../../../../../lib/tenant'
+import { HardStopError, PendingReviewRequiredError } from '@ai-commerce/core/src/decisions/guardrails'
 
 const bodySchema = z.object({
   acao: z.enum(['aprovar', 'rejeitar']),
@@ -40,11 +41,20 @@ export async function POST(
 
     return NextResponse.json({ success: true })
   } catch (error: unknown) {
+    if (error instanceof HardStopError) {
+      return NextResponse.json({ error: `Bloqueado por guardrail: ${error.message}` }, { status: 422 })
+    }
+    if (error instanceof PendingReviewRequiredError) {
+      return NextResponse.json({ error: `Requer revisão: ${error.message}` }, { status: 422 })
+    }
     if (error instanceof Error) {
+      if (error.message?.includes('Transição inválida')) {
+        return NextResponse.json({ error: error.message }, { status: 409 })
+      }
       if (error.message?.includes('Acesso negado')) {
         return NextResponse.json({ error: error.message }, { status: 403 })
       }
-      if (error.message?.includes('Tarefa não encontrada')) {
+      if (error.message?.includes('não encontrada')) {
         return NextResponse.json({ error: error.message }, { status: 404 })
       }
     }
