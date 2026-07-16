@@ -1,0 +1,1 @@
+ALTER TABLE "cliente" ADD COLUMN "ai_execution_enabled" boolean DEFAULT true NOT NULL;

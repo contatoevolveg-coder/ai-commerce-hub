@@ -13,6 +13,7 @@ export const cliente = pgTable(
     nome: text('nome').notNull(),
     cnpj: text('cnpj'),
     regimeTributario: regimeTributarioEnum('regime_tributario').notNull().default('simples'),
+    aiExecutionEnabled: boolean('ai_execution_enabled').notNull().default(true),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
   () => [selfTenantIsolationPolicy('cliente_self_isolation')],

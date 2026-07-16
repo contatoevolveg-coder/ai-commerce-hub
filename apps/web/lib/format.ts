@@ -3,14 +3,10 @@
  * a conversão para string usa matemática inteira — nada de toFixed()/float sobre centavos.
  */
 
+import { formatBRL as formatBRLUI } from '@ai-commerce/ui/src/lib/format'
+
 export function formatBRL(centavos: bigint): string {
-  const negativo = centavos < 0n
-  const abs = negativo ? -centavos : centavos
-  const reais = abs / 100n
-  const cents = abs % 100n
-  const reaisStr = reais.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.')
-  const centsStr = cents.toString().padStart(2, '0')
-  return `${negativo ? '-' : ''}R$ ${reaisStr},${centsStr}`
+  return formatBRLUI(centavos)
 }
 
 /** Centavos → reais inteiros, só para magnitude de eixo de gráfico (perde os centavos de propósito). */

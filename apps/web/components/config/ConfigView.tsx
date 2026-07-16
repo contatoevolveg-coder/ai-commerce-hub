@@ -7,6 +7,7 @@ import {
   type SettingsSectionKey,
 } from "@/components/config/SettingsNav"
 import { SettingsSection } from "@/components/config/SettingsSection"
+import { ErpIntegracoes } from "@/components/config/ErpIntegracoes"
 
 interface Marketplace {
   id: string
@@ -99,23 +100,35 @@ export function ConfigView() {
         {active === "integracoes" && (
           <SettingsSection
             title="Integrações"
-            description="Conecte seus marketplaces para centralizar as vendas"
+            description="Conecte seu ERP de gestão (fonte da verdade de estoque e catálogo) e seus marketplaces"
           >
-            {marketplaces.map((marketplace) => (
-              <Card
-                key={marketplace.id}
-                padding="sm"
-                className="flex items-center justify-between gap-4"
-              >
-                <div className="flex flex-col gap-1">
-                  <span className="text-sm font-medium text-primary-text">
-                    {marketplace.name}
-                  </span>
-                  <Badge variant="default">Desconectado</Badge>
-                </div>
-                <Button size="sm">Conectar</Button>
-              </Card>
-            ))}
+            <div className="flex flex-col gap-3">
+              <span className="text-xs font-semibold uppercase tracking-wider text-muted">
+                ERP de gestão
+              </span>
+              <ErpIntegracoes />
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <span className="text-xs font-semibold uppercase tracking-wider text-muted">
+                Marketplaces
+              </span>
+              {marketplaces.map((marketplace) => (
+                <Card
+                  key={marketplace.id}
+                  padding="sm"
+                  className="flex items-center justify-between gap-4"
+                >
+                  <div className="flex flex-col gap-1">
+                    <span className="text-sm font-medium text-primary-text">
+                      {marketplace.name}
+                    </span>
+                    <Badge variant="default">Desconectado</Badge>
+                  </div>
+                  <Button size="sm">Conectar</Button>
+                </Card>
+              ))}
+            </div>
           </SettingsSection>
         )}
 

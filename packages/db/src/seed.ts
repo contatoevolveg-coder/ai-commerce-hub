@@ -227,6 +227,67 @@ async function main() {
   }
 
   console.log(`[seed] Concluído ✔  tenant demo: ${DEV_CLIENTE_ID}`)
+
+  const { decisao, tarefa, papel, usuario } = schema
+
+  console.log('[seed] Usuário Administrador (para aprovações)…')
+  const [papelRow] = await db.insert(papel)
+    .values({ codigo: 'admin', descricao: 'Administrador' })
+    .onConflictDoUpdate({ target: papel.codigo, set: { descricao: 'Administrador' } })
+    .returning({ id: papel.id })
+
+  await db.insert(usuario)
+    .values({
+      id: '00000000-0000-0000-0000-000000000002',
+      clienteId: DEV_CLIENTE_ID,
+      papelId: papelRow.id,
+      nome: 'Admin',
+      email: 'admin@demo.com'
+    })
+
+  console.log('[seed] Decisões e Tarefas de Governança…')
+  const [decisaoRow] = await db
+    .insert(decisao)
+    .values({
+      clienteId: DEV_CLIENTE_ID,
+      agenteId: agenteIds[0],
+      versaoPrompt: 'v1.1.0',
+      modelo: 'claude-3-5-sonnet',
+      inputHash: 'hashficticio12345',
+      // proposta jsonb: dinheiro como STRING de centavos (bigint não é serializável em JSON).
+      // precoPisoCentavos é fixture de demo; em produção o proponente calcula com calcularMargem.
+      proposta: {
+        tipo: 'ajuste_preco',
+        sku: catalogo[0].sku,
+        precoAtualCentavos: catalogo[0].preco.toString(),
+        precoPropostoCentavos: '19500',
+        precoPisoCentavos: '12000',
+      },
+      raciocinio: 'Aumentando o preço em R$ 5,10 devido à alta demanda recente e margem espremida pelo custo logístico.',
+      impactoEstimadoCentavos: 510n,
+      confianca: 92,
+      estado: 'pending_review',
+    })
+    .returning({ id: decisao.id })
+
+  await db.insert(tarefa).values([
+    {
+      clienteId: DEV_CLIENTE_ID,
+      tipo: 'aprovacao_decisao',
+      titulo: `Aprovar Reprecificação de ${catalogo[0].nome}`,
+      descricao: `O agente ${agentesSeed[0].nome} propôs um ajuste de preço que precisa de revisão manual.`,
+      decisaoId: decisaoRow.id,
+      status: 'aberta',
+    },
+    {
+      clienteId: DEV_CLIENTE_ID,
+      tipo: 'diagnostico_cadastro',
+      titulo: 'Completar NCM de Produto',
+      descricao: `O produto ${catalogo[2].nome} está sem NCM preenchido. Isso impede a emissão de nota fiscal.`,
+      status: 'aberta',
+    }
+  ])
+
   await sql.end()
   process.exit(0)
 }
