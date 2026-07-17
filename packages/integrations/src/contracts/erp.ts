@@ -25,8 +25,13 @@ export const ErpPedidoSchema = z.object({
   idRemoto: z.string(),
   compradorNome: z.string(),
   compradorDocumento: z.string().optional(),
+  compradorEmail: z.string().optional(),
   totalCentavos: z.number().int(),
-  itens: z.array(ErpPedidoItemSchema),
+  itens: z.array(z.object({
+    skuProduto: z.string(),
+    quantidade: z.number().int(),
+    precoUnitarioCentavos: z.number().int(),
+  })),
   dataCriacao: z.string(),
 })
 export type ErpPedido = z.infer<typeof ErpPedidoSchema>

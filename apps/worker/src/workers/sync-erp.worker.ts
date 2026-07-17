@@ -8,7 +8,7 @@ import {
 import {
   obterCredencialErp,
 } from '@ai-commerce/core/src/services/integracoes.service'
-import { BlingMockAdapter } from '@ai-commerce/integrations/src/mock/bling.mock'
+import { getErpAdapter } from '@ai-commerce/integrations'
 import { produto, estoque, cliente, conexaoErp } from '@ai-commerce/db'
 import { eq, and } from 'drizzle-orm'
 
@@ -22,7 +22,7 @@ const connection = new Redis(redisOptions)
 
 /**
  * Worker para Sincronização de ERP.
- * Consome a fila SYNC_ERP e atualiza produto/estoque localmente via mock (Fase 6).
+ * Consome a fila SYNC_ERP e atualiza produto/estoque localmente.
  */
 export const SyncErpWorker = new Worker(
   NomesFilas.SYNC_ERP,
@@ -70,14 +70,17 @@ export const SyncErpWorker = new Worker(
       throw new Error(`Não foi possível obter credencial descriptografada para ERP ${data.erpId}`)
     }
 
-    // Instanciar adapter (Mock)
-    const adapter = new BlingMockAdapter()
+    // Instanciar adapter
+    // Por enquanto, o único ERP suportado é o bling
+    const adapter = getErpAdapter('bling')
 
     if (data.direcao === 'importar') {
       const produtosERP = await adapter.listarProdutos(data.clienteId)
       const estoquesERP = await adapter.obterEstoque(data.clienteId, produtosERP.map(p => p.idRemoto))
       
       const estoqueMap = new Map(estoquesERP.map(e => [e.idRemoto, e.quantidade]))
+
+      const skuToProdutoIdMap = new Map<string, string>()
 
       await withTenant(data.clienteId, async (tx) => {
         for (const p of produtosERP) {
@@ -98,6 +101,8 @@ export const SyncErpWorker = new Worker(
             })
             .returning()
 
+          skuToProdutoIdMap.set(p.sku, prodSalvo.id)
+
           // Salvar Estoque
           const qty = estoqueMap.get(p.idRemoto) || 0
           
@@ -116,7 +121,110 @@ export const SyncErpWorker = new Worker(
             })
         }
       })
-      console.log(`[Worker SyncERP] Sync finalizado. Importados ${produtosERP.length} produtos para tenant ${data.clienteId}`)
+      console.log(`[Worker SyncERP] Sync Produtos finalizado. Importados ${produtosERP.length} produtos para tenant ${data.clienteId}`)
+
+      // === Importar Pedidos ===
+      const trintaDiasAtras = new Date(Date.now() - 30 * 86_400_000)
+      const pedidosERP = await adapter.listarPedidos(data.clienteId, trintaDiasAtras)
+      
+      if (pedidosERP.length > 0) {
+        await withTenant(data.clienteId, async (tx) => {
+          // 1. Garantir Canal Loja Propria para atrelar as vendas
+          const { canal, comprador, pedido, itemPedido } = await import('@ai-commerce/db')
+          let [canalLoja] = await tx
+            .select()
+            .from(canal)
+            .where(and(eq(canal.clienteId, data.clienteId), eq(canal.tipo, 'loja_propria')))
+
+          if (!canalLoja) {
+            const [novoCanal] = await tx.insert(canal).values({
+              clienteId: data.clienteId,
+              tipo: 'loja_propria',
+              nome: 'ERP / Integração Direta',
+              status: 'ativo'
+            }).returning()
+            canalLoja = novoCanal
+          }
+
+          let countPedidosInseridos = 0
+          
+          for (const ped of pedidosERP) {
+            // Verificar se o pedido já existe (para evitar duplicação)
+            const [pedidoExistente] = await tx
+              .select()
+              .from(pedido)
+              .where(
+                and(
+                  eq(pedido.clienteId, data.clienteId),
+                  eq(pedido.canalId, canalLoja.id),
+                  eq(pedido.numeroPedidoRemoto, ped.idRemoto)
+                )
+              )
+
+            if (pedidoExistente) {
+              continue // Já existe, por ora ignoramos updates de status do ERP, apenas importamos os novos.
+            }
+
+            // Comprador: Se tiver documento, tentamos buscar.
+            let compradorId = null
+            if (ped.compradorDocumento) {
+              const [compradorExistente] = await tx
+                .select()
+                .from(comprador)
+                .where(
+                  and(
+                    eq(comprador.clienteId, data.clienteId),
+                    eq(comprador.documento, ped.compradorDocumento)
+                  )
+                )
+              if (compradorExistente) {
+                compradorId = compradorExistente.id
+              }
+            }
+
+            if (!compradorId) {
+              const [novoComprador] = await tx.insert(comprador).values({
+                clienteId: data.clienteId,
+                nome: ped.compradorNome,
+                documento: ped.compradorDocumento,
+                email: ped.compradorEmail,
+              }).returning()
+              compradorId = novoComprador.id
+            }
+
+            // Criar Pedido
+            const [novoPedido] = await tx.insert(pedido).values({
+              clienteId: data.clienteId,
+              canalId: canalLoja.id,
+              compradorId,
+              numeroPedidoRemoto: ped.idRemoto,
+              status: 'novo',
+              totalCentavos: BigInt(ped.totalCentavos),
+              criadoEm: ped.dataCriacao ? new Date(ped.dataCriacao) : new Date()
+            }).returning()
+
+            // Criar Itens do Pedido
+            for (const item of ped.itens) {
+              const produtoIdLocal = skuToProdutoIdMap.get(item.skuProduto)
+              if (produtoIdLocal) {
+                await tx.insert(itemPedido).values({
+                  clienteId: data.clienteId,
+                  pedidoId: novoPedido.id,
+                  produtoId: produtoIdLocal,
+                  quantidade: item.quantidade,
+                  precoUnitarioCentavos: BigInt(item.precoUnitarioCentavos)
+                })
+              } else {
+                console.warn(`[Worker SyncERP] Produto com SKU ${item.skuProduto} não encontrado localmente para o pedido ${ped.idRemoto}. Item ignorado.`)
+              }
+            }
+            
+            countPedidosInseridos++
+          }
+          
+          console.log(`[Worker SyncERP] Sync Vendas finalizado. ${countPedidosInseridos} novos pedidos importados para tenant ${data.clienteId}`)
+        })
+      }
     } else {
       console.log(`[Worker SyncERP] Exportação não implementada no mock ainda.`)
     }

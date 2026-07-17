@@ -212,11 +212,12 @@ export class BlingRealAdapter implements ErpAdapter {
         idRemoto: String(item.id),
         compradorNome: String(contato.nome || 'Desconhecido'),
         compradorDocumento: contato.numeroDocumento ? String(contato.numeroDocumento) : undefined,
+        compradorEmail: contato.email ? String(contato.email) : undefined,
         totalCentavos: Math.round(parseFloat(String(item.total)) * 100),
         itens: itens.map((i: Record<string, unknown>) => {
           const prod = (i.produto || {}) as Record<string, unknown>
           return {
-            idRemotoProduto: prod.id ? String(prod.id) : '',
+            skuProduto: String(prod.codigo || ''),
             quantidade: parseFloat(String(i.quantidade)),
             precoUnitarioCentavos: Math.round(parseFloat(String(i.valorUnitario)) * 100),
           }

@@ -10,9 +10,9 @@ const connectionString = process.env.APP_DATABASE_URL;
 
 if (!connectionString) {
   if (process.env.NODE_ENV === 'production') {
-    throw new Error(
+    console.error(
       '[CRITICAL] APP_DATABASE_URL não configurada no ambiente de produção. ' +
-      'Abortando conexão por segurança (Fail-Closed) para evitar bypass de RLS via superusuário.'
+      'Usando URI inválida (Fail-Closed) para evitar bypass de RLS via superusuário. Consultas falharão.'
     )
   } else if (process.env.NODE_ENV !== 'test') {
     // eslint-disable-next-line no-console
@@ -26,8 +26,9 @@ if (!connectionString) {
 
 const resolvedConnectionString =
   connectionString ||
-  process.env.DATABASE_URL ||
-  'postgres://postgres:postgres@localhost:5432/ai_commerce';
+  (process.env.NODE_ENV === 'production'
+    ? 'postgres://fail_closed:fail_closed@localhost:5432/fail_closed_app_database_url_missing'
+    : (process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/ai_commerce'));
 
 // prepare:false é obrigatório quando a conexão passa pelo Supavisor em modo
 // transaction (porta 6543) — esse modo não suporta prepared statements no nível

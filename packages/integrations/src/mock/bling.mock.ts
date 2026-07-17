@@ -46,17 +46,18 @@ export class BlingMockAdapter implements ErpAdapter {
     })
   }
 
-  async listarPedidos(_clienteId: string, desde: Date): Promise<ErpPedido[]> {
+  async listarPedidos(_clienteId: string, _desde: Date): Promise<ErpPedido[]> {
     return withLatency(() => {
       return [
         {
-          idRemoto: 'bling-ped-1',
+          idRemoto: 'PED-1001',
           compradorNome: 'João Silva',
-          totalCentavos: 15000,
+          compradorEmail: 'joao@example.com',
+          totalCentavos: 18990,
           itens: [
-            { idRemotoProduto: 'bling-prod-1', quantidade: 1, precoUnitarioCentavos: 15000 }
+            { skuProduto: 'INF-1042', quantidade: 1, precoUnitarioCentavos: 18990 }
           ],
-          dataCriacao: new Date(desde.getTime() + 10000).toISOString()
+          dataCriacao: new Date().toISOString()
         }
       ]
     })
