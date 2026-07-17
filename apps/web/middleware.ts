@@ -35,5 +35,5 @@ export default auth((req) => {
 
 export const config = {
   // Matcher ignoring static files, api/auth, and images
-  matcher: ['/((?!api/auth|_next/static|_next/image|favicon.ico).*)'],
+  matcher: ['/((?!api/auth|api/diag|_next/static|_next/image|favicon.ico).*)'],
 }
