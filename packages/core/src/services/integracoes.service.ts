@@ -1,37 +1,12 @@
 import { and, eq } from 'drizzle-orm'
 import { withTenant, conexaoErp, auditLog } from '@ai-commerce/db'
 import { cifrar, decifrar } from '../crypto/credencial'
+import { obterChave, ChaveCriptografiaAusenteError } from '../crypto/chave'
 import { getErpCatalogo, type ErpTipo } from '../integracoes/catalogo-erp'
 import { ValidationError } from '../errors'
 
-export class ChaveCriptografiaAusenteError extends Error {
-  constructor(msg?: string) {
-    super(
-      msg ??
-        'CREDENTIAL_ENCRYPTION_KEY não configurada. Gere uma (openssl rand -base64 32) e defina no ' +
-          'ambiente antes de conectar um ERP.',
-    )
-    this.name = 'ChaveCriptografiaAusenteError'
-  }
-}
-
-/**
- * Lê e valida a chave de criptografia do ambiente. Lida diretamente com process.env (não via
- * o barrel env.ts) para não exigir DATABASE_URL só para cifrar — e para ser testável isolada.
- * NUNCA loga o valor da chave.
- */
-function obterChave(): Buffer {
-  const b64 = process.env.CREDENTIAL_ENCRYPTION_KEY
-  if (!b64) throw new ChaveCriptografiaAusenteError()
-  const chave = Buffer.from(b64.trim(), 'base64')
-  if (chave.length !== 32) {
-    throw new ChaveCriptografiaAusenteError(
-      `CREDENTIAL_ENCRYPTION_KEY inválida: decodificou para ${chave.length} bytes, esperado 32. ` +
-      'Verifique se a chave foi copiada corretamente (sem espaços ou quebras de linha).',
-    )
-  }
-  return chave
-}
+// Reexport para consumidores que já importavam o erro daqui (ex. apps/web/lib/api-handler.ts).
+export { ChaveCriptografiaAusenteError }
 
 /**
  * Valida que as credenciais têm exatamente os campos exigidos pelo ERP (nenhum obrigatório

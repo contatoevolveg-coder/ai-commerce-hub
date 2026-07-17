@@ -8,68 +8,76 @@ import {
 import {
   listarConexoesErp,
   obterCredencialErp,
-  salvarCredencialErp,
-  type ConexaoErpResumo
+  salvarTokenOAuth,
+  obterTokenOAuth,
+  type ConexaoErpResumo,
 } from '@ai-commerce/core'
+import { env } from '../env'
 
-interface BlingCredenciais {
+/**
+ * Contexto de uma conexão Bling de um tenant: o id da conexão (para associar os tokens),
+ * as credenciais estáticas de autorização vindas do cofre (`conexao_erp`) e as credenciais
+ * de APP (client_id/secret) que, por decisão do projeto (F8), vêm do ambiente sandbox.
+ */
+interface BlingContexto {
   conexaoId: string
-  rotulo: string
-  clientId?: string
-  clientSecret?: string
+  clientId: string
+  clientSecret: string
+  /** Código de autorização OAuth (single-use), presente só no primeiro handshake. */
   code?: string
-  accessToken?: string
-  refreshToken?: string
-  expiresAt?: string
-  [key: string]: string | undefined
 }
 
 export class BlingRealAdapter implements ErpAdapter {
   private readonly baseUrl = 'https://www.bling.com.br/Api/v3'
 
-  private async getCredenciais(clienteId: string): Promise<BlingCredenciais> {
+  private async getContexto(clienteId: string): Promise<BlingContexto> {
     const conexoes = await listarConexoesErp(clienteId)
     const conexaoBling = conexoes.find((c: ConexaoErpResumo) => c.erp === 'bling')
 
     if (!conexaoBling) {
-      throw new ErpAdapterError(
-        'UNAUTHORIZED',
-        'ERP Bling não está conectado para este cliente.'
-      )
+      throw new ErpAdapterError('UNAUTHORIZED', 'ERP Bling não está conectado para este cliente.')
     }
 
     const credenciais = await obterCredencialErp(clienteId, conexaoBling.id)
-    if (!credenciais) {
-      throw new ErpAdapterError('UNAUTHORIZED', 'Credenciais não encontradas.')
+
+    // client_id/secret vêm do APP Bling (env sandbox), com fallback para o que o tenant
+    // gravou no cofre. Sem eles não há como fazer o handshake OAuth.
+    const clientId = env.BLING_CLIENT_ID || credenciais?.clientId
+    const clientSecret = env.BLING_CLIENT_SECRET || credenciais?.clientSecret
+    if (!clientId || !clientSecret) {
+      throw new ErpAdapterError(
+        'UNAUTHORIZED',
+        'Credenciais OAuth do app Bling ausentes (BLING_CLIENT_ID/BLING_CLIENT_SECRET).',
+      )
     }
 
     return {
       conexaoId: conexaoBling.id,
-      rotulo: conexaoBling.rotulo,
-      ...credenciais,
-    } as BlingCredenciais
+      clientId,
+      clientSecret,
+      code: credenciais?.code,
+    }
   }
 
-  private async refreshToken(clienteId: string, creds: BlingCredenciais): Promise<string> {
-    if (!creds.clientId || !creds.clientSecret) {
-      throw new ErpAdapterError('UNAUTHORIZED', 'Credenciais OAuth ausentes.')
-    }
-
-    const authHeader = Buffer.from(
-      `${creds.clientId}:${creds.clientSecret}`
-    ).toString('base64')
+  private async trocarToken(
+    clienteId: string,
+    ctx: BlingContexto,
+    refreshToken?: string,
+  ): Promise<string> {
+    const authHeader = Buffer.from(`${ctx.clientId}:${ctx.clientSecret}`).toString('base64')
 
     const body = new URLSearchParams()
-    if (creds.refreshToken) {
+    if (refreshToken) {
       body.append('grant_type', 'refresh_token')
-      body.append('refresh_token', creds.refreshToken)
-    } else if (creds.code) {
+      body.append('refresh_token', refreshToken)
+    } else if (ctx.code) {
       body.append('grant_type', 'authorization_code')
-      body.append('code', creds.code)
+      body.append('code', ctx.code)
+      if (env.BLING_REDIRECT_URI) body.append('redirect_uri', env.BLING_REDIRECT_URI)
     } else {
       throw new ErpAdapterError(
         'UNAUTHORIZED',
-        'Nem refresh token nem código de autorização encontrados.'
+        'Sem refresh token nem código de autorização — refaça o handshake OAuth do Bling.',
       )
     }
 
@@ -83,54 +91,43 @@ export class BlingRealAdapter implements ErpAdapter {
     })
 
     if (!response.ok) {
-      // Note: never log the tokens or secrets, just generic errors
+      // NUNCA logar tokens/segredos — só o status genérico.
       throw new ErpAdapterError(
         'UNAUTHORIZED',
-        `Falha ao obter token OAuth do Bling. Status: ${response.status}`
+        `Falha ao obter token OAuth do Bling. Status: ${response.status}`,
       )
     }
 
     const data = await response.json()
-    const newAccessToken = data.access_token
-    const newRefreshToken = data.refresh_token
-    const expiresIn = data.expires_in
+    const accessToken: string = data.access_token
+    const newRefreshToken: string = data.refresh_token
+    const expiresIn: number = data.expires_in
 
-    const expiresAt = Date.now() + expiresIn * 1000
-
-    // Save back to DB
-    const novasCredenciais = {
-      clientId: creds.clientId,
-      clientSecret: creds.clientSecret,
-      accessToken: newAccessToken,
-      refreshToken: newRefreshToken,
-      expiresAt: expiresAt.toString(),
+    if (!accessToken || !newRefreshToken) {
+      throw new ErpAdapterError('UNAUTHORIZED', 'Resposta OAuth do Bling sem tokens esperados.')
     }
 
-    await salvarCredencialErp(
-      clienteId,
-      {
-        erp: 'bling',
-        rotulo: creds.rotulo || 'Bling ERP',
-        credenciais: novasCredenciais,
-      },
-      'sistema'
-    )
+    // Persiste os tokens na tabela DEDICADA e cifrada (token_oauth) — nunca no cofre de
+    // credenciais estáticas, e nunca em log.
+    await salvarTokenOAuth(clienteId, ctx.conexaoId, {
+      accessToken,
+      refreshToken: newRefreshToken,
+      expiraEm: new Date(Date.now() + expiresIn * 1000),
+    })
 
-    return newAccessToken
+    return accessToken
   }
 
   private async getAccessToken(clienteId: string): Promise<string> {
-    const creds = await this.getCredenciais(clienteId)
+    const ctx = await this.getContexto(clienteId)
+    const stored = await obterTokenOAuth(clienteId, ctx.conexaoId)
 
-    if (
-      creds.accessToken &&
-      creds.expiresAt &&
-      parseInt(creds.expiresAt, 10) > Date.now() + 60000
-    ) {
-      return creds.accessToken
+    // Reusa o access token se ainda faltarem >60s para expirar.
+    if (stored && stored.expiraEm.getTime() > Date.now() + 60_000) {
+      return stored.accessToken
     }
 
-    return this.refreshToken(clienteId, creds)
+    return this.trocarToken(clienteId, ctx, stored?.refreshToken)
   }
 
   private async fetchApi(clienteId: string, endpoint: string, options: RequestInit = {}) {
@@ -149,9 +146,10 @@ export class BlingRealAdapter implements ErpAdapter {
     let response = await makeRequest(token)
 
     if (response.status === 401) {
-      // Token might have expired precisely now
-      const creds = await this.getCredenciais(clienteId)
-      token = await this.refreshToken(clienteId, creds)
+      // Token pode ter expirado exatamente agora — força um refresh e tenta uma vez mais.
+      const ctx = await this.getContexto(clienteId)
+      const stored = await obterTokenOAuth(clienteId, ctx.conexaoId)
+      token = await this.trocarToken(clienteId, ctx, stored?.refreshToken)
       response = await makeRequest(token)
     }
 

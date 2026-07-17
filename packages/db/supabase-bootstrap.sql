@@ -25,3 +25,22 @@
 
 -- 2. Permite que postgres troque para app_role dentro das transações de tenant.
 GRANT app_role TO postgres;
+
+-- ----------------------------------------------------------------------------
+-- Hardening aplicado após auditoria (advisors de segurança do Supabase).
+-- Já aplicado em produção via migrations 0008/0009; aqui para reprodutibilidade
+-- em projetos novos.
+-- ----------------------------------------------------------------------------
+
+-- FORCE RLS nas tabelas que guardam segredos cifrados (migration 0008).
+ALTER TABLE conexao_erp FORCE ROW LEVEL SECURITY;
+ALTER TABLE token_oauth FORCE ROW LEVEL SECURITY;
+
+-- RLS na tabela de referência global `papel` (advisor rls_disabled_in_public).
+-- Sem dados sensíveis; leitura liberada, escrita só via role bypassrls.
+ALTER TABLE papel ENABLE ROW LEVEL SECURITY;
+CREATE POLICY papel_leitura_global ON papel AS PERMISSIVE FOR SELECT TO public USING (true);
+
+-- search_path imutável na função append-only do audit_log (advisor
+-- function_search_path_mutable).
+ALTER FUNCTION public.audit_log_bloquear_update_delete() SET search_path = '';
