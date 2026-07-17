@@ -1,0 +1,3 @@
+-- FORCE ROW LEVEL SECURITY para tabelas introduzidas na fase 5.2
+ALTER TABLE "tarefa" FORCE ROW LEVEL SECURITY;
+ALTER TABLE "regra_preco" FORCE ROW LEVEL SECURITY;

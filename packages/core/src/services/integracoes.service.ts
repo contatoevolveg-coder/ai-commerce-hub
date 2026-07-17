@@ -123,6 +123,56 @@ export function salvarCredencialErp(
 }
 
 /**
+ * Garante que existe uma conexão de ERP para o tenant (cria se não houver) e devolve seu id.
+ * Usada pelo fluxo OAuth (F8): o client_id/secret vêm do ambiente, então a conexão nasce só
+ * como "recipiente" dos tokens (payload cifrado vazio) até o handshake concluir. Se a conexão
+ * já existir (ex. criada pelo cofre com credenciais), NÃO sobrescreve o payload — só garante a
+ * linha e atualiza o rótulo.
+ */
+export function garantirConexaoErpOAuth(
+  clienteId: string,
+  erp: ErpTipo,
+  rotulo: string,
+): Promise<string> {
+  const chave = obterChave()
+  const vazio = cifrar(JSON.stringify({}), chave)
+  return withTenant(clienteId, async (tx) => {
+    const [row] = await tx
+      .insert(conexaoErp)
+      .values({
+        clienteId,
+        erp,
+        rotulo,
+        status: 'desconectado',
+        payloadCifrado: vazio.payloadCifrado,
+        iv: vazio.iv,
+        authTag: vazio.authTag,
+      })
+      .onConflictDoUpdate({
+        // Conexão já existe: preserva o payload atual, só atualiza o rótulo.
+        target: [conexaoErp.clienteId, conexaoErp.erp],
+        set: { rotulo, atualizadoEm: new Date() },
+      })
+      .returning({ id: conexaoErp.id })
+    return row.id
+  })
+}
+
+/** Atualiza o status de uma conexão de ERP (ex. 'conectado' após o handshake OAuth). */
+export function atualizarStatusConexaoErp(
+  clienteId: string,
+  conexaoId: string,
+  status: 'conectado' | 'desconectado' | 'erro',
+): Promise<void> {
+  return withTenant(clienteId, async (tx) => {
+    await tx
+      .update(conexaoErp)
+      .set({ status, atualizadoEm: new Date() })
+      .where(and(eq(conexaoErp.id, conexaoId), eq(conexaoErp.clienteId, clienteId)))
+  })
+}
+
+/**
  * Decifra a credencial de uma conexão. USO EXCLUSIVO DO SERVIDOR (adapters de ERP, F8) —
  * nunca deve ser exposto por uma rota que devolva o resultado ao client.
  */

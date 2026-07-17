@@ -23,6 +23,7 @@ export function ErpIntegracoes() {
   const [rotulo, setRotulo] = useState("")
   const [enviando, setEnviando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
+  const [avisoOAuth, setAvisoOAuth] = useState<{ tipo: "ok" | "erro"; texto: string } | null>(null)
 
   const statusPorErp = useMemo(() => {
     const m = new Map<ErpTipo, Conexao>()
@@ -44,6 +45,24 @@ export function ErpIntegracoes() {
 
   useEffect(() => {
     carregar()
+  }, [])
+
+  // Lê o resultado do handshake OAuth (redirect de /api/integracoes/bling/callback).
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const bling = params.get("bling")
+    if (bling === "ok") {
+      setAvisoOAuth({ tipo: "ok", texto: "Bling autorizado com sucesso (OAuth conectado)." })
+    } else if (bling === "erro") {
+      const motivo = params.get("motivo")
+      setAvisoOAuth({
+        tipo: "erro",
+        texto: `Falha ao autorizar o Bling${motivo ? `: ${motivo}` : "."}`,
+      })
+    }
+    if (bling) {
+      window.history.replaceState({}, "", window.location.pathname)
+    }
   }, [])
 
   function abrir(cat: ErpCatalogo) {
@@ -87,6 +106,17 @@ export function ErpIntegracoes() {
   return (
     <>
       <div className="flex flex-col gap-3">
+        {avisoOAuth && (
+          <div
+            className={
+              avisoOAuth.tipo === "ok"
+                ? "rounded-sm border border-success/40 bg-success/12 px-3 py-2 text-xs text-success"
+                : "rounded-sm border border-danger/40 bg-danger/12 px-3 py-2 text-xs text-danger"
+            }
+          >
+            {avisoOAuth.texto}
+          </div>
+        )}
         {CATALOGO_ERP.map((cat) => {
           const conectado = statusPorErp.get(cat.erp)?.status === "conectado"
           return (
@@ -100,13 +130,26 @@ export function ErpIntegracoes() {
                 </div>
                 <span className="text-xs text-muted">{cat.descricao}</span>
               </div>
-              <Button
-                size="sm"
-                variant={conectado ? "secondary" : "primary"}
-                onClick={() => abrir(cat)}
-              >
-                {conectado ? "Reconectar" : "Conectar"}
-              </Button>
+              <div className="flex items-center gap-2">
+                {cat.erp === "bling" && (
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    onClick={() => {
+                      window.location.href = "/api/integracoes/bling/authorize"
+                    }}
+                  >
+                    Autorizar via OAuth
+                  </Button>
+                )}
+                <Button
+                  size="sm"
+                  variant={conectado ? "secondary" : "primary"}
+                  onClick={() => abrir(cat)}
+                >
+                  {conectado ? "Reconectar" : "Conectar"}
+                </Button>
+              </div>
             </Card>
           )
         })}

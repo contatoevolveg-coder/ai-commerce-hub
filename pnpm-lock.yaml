@@ -44,6 +44,9 @@ importers:
       '@ai-commerce/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@ai-commerce/integrations':
+        specifier: workspace:*
+        version: link:../../packages/integrations
       '@ai-commerce/ui':
         specifier: workspace:*
         version: link:../../packages/ui

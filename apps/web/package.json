@@ -12,6 +12,7 @@
   "dependencies": {
     "@ai-commerce/core": "workspace:*",
     "@ai-commerce/db": "workspace:*",
+    "@ai-commerce/integrations": "workspace:*",
     "@ai-commerce/ui": "workspace:*",
     "bcrypt": "^6.0.0",
     "drizzle-orm": "0.45.2",

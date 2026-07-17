@@ -41,6 +41,20 @@ ALTER TABLE token_oauth FORCE ROW LEVEL SECURITY;
 ALTER TABLE papel ENABLE ROW LEVEL SECURITY;
 CREATE POLICY papel_leitura_global ON papel AS PERMISSIVE FOR SELECT TO public USING (true);
 
--- search_path imutável na função append-only do audit_log (advisor
--- function_search_path_mutable).
-ALTER FUNCTION public.audit_log_bloquear_update_delete() SET search_path = '';
+-- FORCE RLS nas tabelas de negócio da F5.2 que nasceram só com ENABLE (migration 0010).
+ALTER TABLE tarefa FORCE ROW LEVEL SECURITY;
+ALTER TABLE regra_preco FORCE ROW LEVEL SECURITY;
+
+-- Função append-only do audit_log (migrations 0009 search_path + 0011 purge LGPD):
+-- search_path imutável (advisor function_search_path_mutable) e permissão de DELETE
+-- APENAS durante purge deliberado de tenant (LGPD), sinalizado por app.purge_tenant='on'.
+-- UPDATE e DELETE fora do purge continuam sempre bloqueados (append-only preservado).
+CREATE OR REPLACE FUNCTION public.audit_log_bloquear_update_delete()
+RETURNS trigger LANGUAGE plpgsql SET search_path = '' AS $function$
+BEGIN
+  IF TG_OP = 'DELETE' AND current_setting('app.purge_tenant', true) = 'on' THEN
+    RETURN OLD;
+  END IF;
+  RAISE EXCEPTION 'audit_log é append-only: % não é permitido', TG_OP;
+END;
+$function$;

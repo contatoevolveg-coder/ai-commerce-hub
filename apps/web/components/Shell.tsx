@@ -24,7 +24,8 @@ const navItems = [
   { name: "Governança", href: "/governanca", icon: ShieldCheck },
   { name: "Agentes IA", href: "/agentes", icon: Bot },
   { name: "Clientes", href: "/clientes", icon: Users },
-  { name: "Analytics", href: "/analytics", icon: BarChart3 },
+  { name: "Relatórios", href: "/relatorios", icon: BarChart3 },
+  { name: "Integrações", href: "/integracoes", icon: Settings },
   { name: "Configurações", href: "/config", icon: Settings },
 ]
 
