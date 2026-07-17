@@ -2,6 +2,7 @@ import { and, eq } from 'drizzle-orm'
 import { withTenant, conexaoErp, auditLog } from '@ai-commerce/db'
 import { cifrar, decifrar } from '../crypto/credencial'
 import { getErpCatalogo, type ErpTipo } from '../integracoes/catalogo-erp'
+import { ValidationError } from '../errors'
 
 export class ChaveCriptografiaAusenteError extends Error {
   constructor(msg?: string) {
@@ -41,13 +42,13 @@ export function validarCredenciais(
   credenciais: Record<string, string>,
 ): Record<string, string> {
   const catalogo = getErpCatalogo(erp)
-  if (!catalogo) throw new Error(`ERP não suportado: ${erp}`)
+  if (!catalogo) throw new ValidationError(`ERP não suportado: ${erp}`)
 
   const limpo: Record<string, string> = {}
   for (const campo of catalogo.campos) {
     const valor = credenciais[campo.chave]
     if (typeof valor !== 'string' || valor.trim() === '') {
-      throw new Error(`Campo obrigatório ausente para ${catalogo.nome}: ${campo.rotulo}.`)
+      throw new ValidationError(`Campo obrigatório ausente para ${catalogo.nome}: ${campo.rotulo}.`)
     }
     limpo[campo.chave] = valor.trim()
   }

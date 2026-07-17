@@ -74,7 +74,8 @@ export function ErpIntegracoes() {
         await carregar()
       } else {
         const data = await res.json().catch(() => ({}))
-        setErro(typeof data.erro === "string" ? data.erro : "Não foi possível salvar a conexão.")
+        const base = typeof data.erro === "string" ? data.erro : "Não foi possível salvar a conexão."
+        setErro(typeof data.detalhe === "string" ? `${base} (${data.detalhe})` : base)
       }
     } catch {
       setErro("Erro de rede ao salvar a conexão.")

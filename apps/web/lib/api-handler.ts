@@ -51,7 +51,12 @@ export function withApiHandler(handler: HandlerFunction) {
 
       // Erros genéricos
       console.error(`[API Handler Error] ${req.method} ${req.nextUrl.pathname}`, error)
-      return NextResponse.json({ erro: 'Erro interno do servidor.' }, { status: 500 })
+      const detalhe =
+        error instanceof Error ? `${error.name}: ${error.message}` : String(error)
+      return NextResponse.json(
+        { erro: 'Erro interno do servidor.', detalhe },
+        { status: 500 },
+      )
     }
   }
 }
