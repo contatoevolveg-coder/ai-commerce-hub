@@ -1,6 +1,7 @@
 import 'dotenv/config'
 import { db } from '@ai-commerce/db'
 import { DiagnosticoWorker } from './workers/diagnostico.worker'
+import { SyncErpWorker } from './workers/sync-erp.worker'
 
 async function bootstrap() {
   console.log('🚀 [Worker] Inicializando AI Commerce Hub Worker Engine...')
@@ -20,16 +21,18 @@ async function bootstrap() {
   }
 
   // O DiagnosticoWorker já começa a puxar jobs do Redis no instante que é importado e instanciado.
-  // Podemos adicionar mais workers aqui, ex: SyncBlingWorker, SmartPricingWorker...
+  // O mesmo para SyncErpWorker
   
   console.log(`✅ [Worker] Workers registrados e aguardando tarefas na fila:`)
   console.log(`   - ${DiagnosticoWorker.name}`)
+  console.log(`   - ${SyncErpWorker.name}`)
 }
 
 // Trata encerramento graceful (Ctrl+C, Docker stop)
 process.on('SIGTERM', async () => {
   console.log('Sinal SIGTERM recebido, encerrando workers graciosamente...')
   await DiagnosticoWorker.close()
+  await SyncErpWorker.close()
   process.exit(0)
 })
 

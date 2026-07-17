@@ -7,7 +7,7 @@ import {
 } from '@ai-commerce/core/src/jobs/filas'
 import { analisarProduto } from '@ai-commerce/core/src/ai/diagnostico.agent'
 import { registrarDecisao } from '@ai-commerce/core/src/ai/decisions.service'
-import { produto } from '@ai-commerce/db'
+import { produto, cliente } from '@ai-commerce/db'
 import { eq, and } from 'drizzle-orm'
 import { createHash } from 'node:crypto'
 
@@ -40,6 +40,17 @@ export const DiagnosticoWorker = new Worker(
           .where(
             and(eq(produto.id, data.entidadeId), eq(produto.clienteId, data.clienteId))
           )
+
+        // Verifica kill switch
+        const [clientData] = await tx
+          .select({ aiExecutionEnabled: cliente.aiExecutionEnabled })
+          .from(cliente)
+          .where(eq(cliente.id, data.clienteId))
+
+        if (clientData && !clientData.aiExecutionEnabled) {
+          console.log(`[Worker] Kill switch ativo: execução de IA desabilitada para tenant ${data.clienteId}. Job pulado.`)
+          return
+        }
 
         if (!prod) {
           throw new Error(`Produto ${data.entidadeId} não encontrado para tenant ${data.clienteId}`)
