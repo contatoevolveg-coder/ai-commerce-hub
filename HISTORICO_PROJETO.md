@@ -135,6 +135,35 @@ Regra adicionada: ao adicionar env var na Vercel, sempre fazer push de diff real
 
 ---
 
+## Incidente 5 — pooler do Supabase não aceita role customizada (RLS via SET LOCAL ROLE)
+
+Ao conectar Bling em produção, depois de corrigir a chave: `Erro interno (ENOTFOUND
+tenant/user app_role.hxczjohoojfqwnanzvef not found)`. Progressão de causas:
+1. `APP_DATABASE_URL` montada com host inexistente `<ref>.pooler.supabase.com` → DNS
+   ENOTFOUND. No pooler do Supabase o ref vai no USUÁRIO, host é regional
+   (`aws-0-sa-east-1.pooler.supabase.com`).
+2. Corrigido o host, novo erro do Supavisor: `Tenant or user not found` para
+   `app_role.<ref>` — **o pooler (porta 6543) só reconhece o usuário `postgres`**,
+   não roles customizadas.
+3. Mas `postgres` tem BYPASSRLS (confirmado em `pg_roles`) — usá-lo direto anularia
+   o isolamento multi-tenant. `app_role` tem NOBYPASSRLS (correto), mas não conecta
+   pelo pooler.
+
+**Solução (a que vale a partir de agora):** a app conecta como `postgres` pelo pooler
+e faz `SET LOCAL ROLE app_role` dentro de cada transação em `withTenant`
+(`packages/db/src/tenant-context.ts`). Isso descarta o BYPASSRLS pela duração da
+transação → RLS volta a valer (validado no banco real: tenant correto vê 5 produtos,
+tenant errado vê 0). Pré-requisito no banco: `GRANT app_role TO postgres` (ver
+`packages/db/supabase-bootstrap.sql`) — já aplicado em produção.
+
+**Config de produção resultante:** `APP_DATABASE_URL` deve ser **igual** ao
+`DATABASE_URL` (ambos conectam como `postgres` pelo pooler); o isolamento é garantido
+pelo `SET LOCAL ROLE`, não por role de conexão distinta. Toda query de negócio DEVE
+passar por `withTenant` — uma query direta em `db` fora dele roda como postgres e
+ignora RLS (os filtros explícitos `cliente_id` em cada serviço são a defesa em
+profundidade que cobre esse caso). A senha do `app_role` foi rotacionada durante o
+diagnóstico (passou pelo chat) — **rotacionar de novo pós-demo**.
+
 ## Como manter este arquivo
 
 Toda vez que uma fase for concluída e mergeada na `main`, adicione uma seção nova aqui (mesmo
