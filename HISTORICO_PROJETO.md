@@ -122,6 +122,19 @@ vazio é ignorado pelo "ignored build step" da Vercel, que detecta "not affected
 Ver também `packages/db/apply_migration.js` no `.gitignore` — tinha connection string de produção
 em texto plano, nunca chegou a ser commitado, mas quase foi.
 
+## Incidente 4 — CREDENTIAL_ENCRYPTION_KEY com valor vazio/inválido na Vercel
+
+Ao conectar Bling em produção, a mensagem era "Erro interno do servidor" (500 genérico).
+Causa: `ChaveCriptografiaAusenteError` para chave ausente devolvia 503 claro, mas chave
+configurada com valor incorreto (0 bytes após base64) lançava `Error` genérico → caia no
+catch 500. Fix: `obterChave()` agora faz `.trim()` antes de decodificar e lança
+`ChaveCriptografiaAusenteError` (com mensagem descritiva) para comprimento != 32 bytes.
+Segundo problema: a variável foi adicionada na Vercel depois do último deploy, e commit
+vazio é ignorado pelo "ignored build step" — precisa de diff real para forçar rebuild.
+Regra adicionada: ao adicionar env var na Vercel, sempre fazer push de diff real logo após.
+
+---
+
 ## Como manter este arquivo
 
 Toda vez que uma fase for concluída e mergeada na `main`, adicione uma seção nova aqui (mesmo
