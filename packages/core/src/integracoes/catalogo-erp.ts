@@ -17,6 +17,7 @@ export interface CampoCredencial {
   /** `password` = campo mascarado na UI (segredos). `text` = valor não sensível (ex. URL base). */
   tipo: 'text' | 'password'
   ajuda?: string
+  opcional?: boolean
 }
 
 export interface ErpCatalogo {
@@ -39,6 +40,13 @@ export const CATALOGO_ERP: ErpCatalogo[] = [
         ajuda: 'Painel de desenvolvedor do Bling → sua aplicação.',
       },
       { chave: 'clientSecret', rotulo: 'Client Secret', tipo: 'password' },
+      {
+        chave: 'code',
+        rotulo: 'Código de Autorização (Opcional)',
+        tipo: 'password',
+        ajuda: 'Necessário para o primeiro login OAuth2. Se já estiver conectado, deixe em branco.',
+        opcional: true,
+      },
     ],
   },
   {

@@ -47,10 +47,15 @@ export function validarCredenciais(
   const limpo: Record<string, string> = {}
   for (const campo of catalogo.campos) {
     const valor = credenciais[campo.chave]
-    if (typeof valor !== 'string' || valor.trim() === '') {
+    const isEmpty = typeof valor !== 'string' || valor.trim() === ''
+    
+    if (isEmpty && !campo.opcional) {
       throw new ValidationError(`Campo obrigatório ausente para ${catalogo.nome}: ${campo.rotulo}.`)
     }
-    limpo[campo.chave] = valor.trim()
+    
+    if (!isEmpty) {
+      limpo[campo.chave] = valor.trim()
+    }
   }
   return limpo
 }

@@ -35,6 +35,8 @@ export interface ErpAdapter {
   listarProdutos(clienteId: string): Promise<ErpProduto[]>
   obterEstoque(clienteId: string, produtoIds: string[]): Promise<ErpEstoque[]>
   listarPedidos(clienteId: string, desde: Date): Promise<ErpPedido[]>
+  atualizarPreco(clienteId: string, sku: string, precoCentavos: number): Promise<void>
+  atualizarEstoque(clienteId: string, sku: string, quantidade: number): Promise<void>
 }
 
 export type ErpAdapterErrorType = 'NETWORK_ERROR' | 'UNAUTHORIZED' | 'RATE_LIMIT' | 'NOT_FOUND' | 'UNKNOWN'

@@ -3,13 +3,13 @@ import { ErpAdapter } from './contracts/erp'
 import { MarketplaceAdapter } from './contracts/marketplace'
 import { BlingMockAdapter } from './mock/bling.mock'
 import { MercadoLivreMockAdapter } from './mock/mercadolivre.mock'
+import { BlingRealAdapter } from './real/bling.adapter'
 
 export function getErpAdapter(tipo: 'bling'): ErpAdapter {
-  if (env.ADAPTER_MODE === 'real') {
-    throw new Error(`Adapter real para ERP '${tipo}' não está implementado na fase atual.`)
-  }
-  
   if (tipo === 'bling') {
+    if (env.ADAPTER_MODE === 'real') {
+      return new BlingRealAdapter()
+    }
     return new BlingMockAdapter()
   }
   

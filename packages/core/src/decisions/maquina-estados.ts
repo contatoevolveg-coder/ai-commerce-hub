@@ -1,6 +1,6 @@
 import { eq, and } from 'drizzle-orm'
 import { decisao, auditLog, cliente, agente, type TenantTx } from '@ai-commerce/db'
-import { aplicarGuardrails, type ContextoGuardrails } from './guardrails'
+import { aplicarGuardrails, DryRunError, type ContextoGuardrails } from './guardrails'
 import { construirContextoGuardrails } from './proposta'
 
 export type EstadoDecisao = typeof decisao.$inferSelect.estado
@@ -117,9 +117,15 @@ export async function transitarDecisao(
   ator: string,
   motivo?: string,
   contexto?: ContextoGuardrails,
+  opcoes?: { dryRun?: boolean }
 ): Promise<typeof decisao.$inferSelect> {
   // 1. Valida o grafo da máquina de estados
   validarTransicaoEstado(decisaoAtual.estado, estadoAlvo)
+
+  // 1.1 Bloqueio de dry-run para execução real
+  if (opcoes?.dryRun === true && estadoAlvo === 'executing') {
+    throw new DryRunError()
+  }
 
   // 2. Resolve o contexto e aplica guardrails
   if (estadoAlvo === 'auto_approved' || estadoAlvo === 'approved') {

@@ -61,4 +61,16 @@ export class BlingMockAdapter implements ErpAdapter {
       ]
     })
   }
+
+  async atualizarPreco(clienteId: string, sku: string, precoCentavos: number): Promise<void> {
+    return withLatency(() => {
+      console.log(`[BlingMock] Atualizando preço do SKU ${sku} para ${precoCentavos} centavos (Cliente ${clienteId})`)
+    })
+  }
+
+  async atualizarEstoque(clienteId: string, sku: string, quantidade: number): Promise<void> {
+    return withLatency(() => {
+      console.log(`[BlingMock] Atualizando estoque do SKU ${sku} para ${quantidade} (Cliente ${clienteId})`)
+    })
+  }
 }

@@ -12,6 +12,13 @@ export class PendingReviewRequiredError extends Error {
   }
 }
 
+export class DryRunError extends Error {
+  constructor(message: string = 'Ação interrompida pois o modo dry-run (sandbox) está ativo.') {
+    super(message)
+    this.name = 'DryRunError'
+  }
+}
+
 /**
  * Contexto usado pelos guardrails. Todos os campos de preço são bigint em centavos.
  * O contexto de preço é derivado da PRÓPRIA decisão (ver proposta.ts) — quem propõe a
