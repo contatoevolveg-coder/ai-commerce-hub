@@ -1,8 +1,8 @@
-import { eq } from 'drizzle-orm'
-import { db, decisao, agente } from '@ai-commerce/db'
+import { eq, and } from 'drizzle-orm'
+import { decisao, agente, type TenantTx } from '@ai-commerce/db'
 
 export async function registrarDecisao(
-  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  tx: TenantTx,
   params: {
     clienteId: string
     agenteNome: string // Ex: 'Diagnóstico SEO'
@@ -21,7 +21,7 @@ export async function registrarDecisao(
   let [agenteRecord] = await tx
     .select()
     .from(agente)
-    .where(eq(agente.nome, params.agenteNome))
+    .where(and(eq(agente.nome, params.agenteNome), eq(agente.clienteId, params.clienteId)))
 
   if (!agenteRecord) {
     [agenteRecord] = await tx

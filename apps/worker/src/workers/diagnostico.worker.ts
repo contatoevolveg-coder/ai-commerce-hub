@@ -1,5 +1,5 @@
 import { Job, Worker } from 'bullmq'
-import Redis from 'ioredis'
+import { Redis } from 'ioredis'
 import { withTenant } from '@ai-commerce/db'
 import {
   NomesFilas,
@@ -9,7 +9,7 @@ import { analisarProduto } from '@ai-commerce/core/src/ai/diagnostico.agent'
 import { registrarDecisao } from '@ai-commerce/core/src/ai/decisions.service'
 import { produto } from '@ai-commerce/db'
 import { eq, and } from 'drizzle-orm'
-import crypto from 'crypto'
+import { createHash } from 'node:crypto'
 
 const redisOptions = {
   host: process.env.REDIS_HOST || 'localhost',
@@ -34,13 +34,16 @@ export const DiagnosticoWorker = new Worker(
       console.log(`[Worker] Iniciando diagnóstico para tenant ${data.clienteId}, entidade ${data.entidadeId}`)
 
       if (data.entidade === 'produto') {
-        // Exemplo: Buscar o produto de forma isolada
         const [prod] = await tx
           .select()
           .from(produto)
           .where(
             and(eq(produto.id, data.entidadeId), eq(produto.clienteId, data.clienteId))
           )
+
+        if (!prod) {
+          throw new Error(`Produto ${data.entidadeId} não encontrado para tenant ${data.clienteId}`)
+        }
 
         console.log(`[Worker] Diagnosticando produto via LLM: ${prod.nome}...`)
         
@@ -54,7 +57,7 @@ export const DiagnosticoWorker = new Worker(
           console.log(`[Worker] Diagnóstico concluído. Confiança: ${resultado.confianca}%`)
           
           // Gera um hash determinístico da entrada
-          const hashInput = crypto.createHash('sha256')
+          const hashInput = createHash('sha256')
             .update(JSON.stringify({ id: prod.id, nome: prod.nome }))
             .digest('hex')
 
