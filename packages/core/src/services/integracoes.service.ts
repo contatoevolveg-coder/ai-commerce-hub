@@ -4,10 +4,11 @@ import { cifrar, decifrar } from '../crypto/credencial'
 import { getErpCatalogo, type ErpTipo } from '../integracoes/catalogo-erp'
 
 export class ChaveCriptografiaAusenteError extends Error {
-  constructor() {
+  constructor(msg?: string) {
     super(
-      'CREDENTIAL_ENCRYPTION_KEY não configurada. Gere uma (openssl rand -base64 32) e defina no ' +
-        'ambiente antes de conectar um ERP.',
+      msg ??
+        'CREDENTIAL_ENCRYPTION_KEY não configurada. Gere uma (openssl rand -base64 32) e defina no ' +
+          'ambiente antes de conectar um ERP.',
     )
     this.name = 'ChaveCriptografiaAusenteError'
   }
@@ -21,9 +22,12 @@ export class ChaveCriptografiaAusenteError extends Error {
 function obterChave(): Buffer {
   const b64 = process.env.CREDENTIAL_ENCRYPTION_KEY
   if (!b64) throw new ChaveCriptografiaAusenteError()
-  const chave = Buffer.from(b64, 'base64')
+  const chave = Buffer.from(b64.trim(), 'base64')
   if (chave.length !== 32) {
-    throw new Error('CREDENTIAL_ENCRYPTION_KEY inválida: deve decodificar para 32 bytes (256 bits).')
+    throw new ChaveCriptografiaAusenteError(
+      `CREDENTIAL_ENCRYPTION_KEY inválida: decodificou para ${chave.length} bytes, esperado 32. ` +
+      'Verifique se a chave foi copiada corretamente (sem espaços ou quebras de linha).',
+    )
   }
   return chave
 }
